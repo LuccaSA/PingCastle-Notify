@@ -1,7 +1,7 @@
 PingCastle Notify
 ===
 
-PingCaslte Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack channel.
+PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack channel.
 The slack message will notify you regarding the different states: correction, recession etc
 <p align="center">
 
