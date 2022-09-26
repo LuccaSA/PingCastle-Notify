@@ -5,8 +5,7 @@ PingCastle Notify will run a PingCastle scan, compare the difference between a p
 The slack message will notify you regarding the different states: correction, recession etc
 <p align="center">
 
-![image](https://user-images.githubusercontent.com/5891788/192320796-26b6f1a8-8e60-47ef-9a52-49afb35f91d9.png)
-
+![image](https://user-images.githubusercontent.com/5891788/192321307-514b6fc5-2ce0-4018-8876-1079718eb674.png)
 </p>
 <hr>
 <details>
