@@ -121,10 +121,10 @@ Function DiffReport($xml1,$xml2,$action) {
         $found = 0
         Foreach ($rule2 in $xml2) {
             if ($rule.Rationale -and $rule2.Rationale) {
-                if ($action -ne ":arrow_forward:" -and ($rule2.Rationale.SubString(0,30)) -eq ($rule.Rationale.SubString(0,30))) {
+                if ($action -ne ":arrow_forward:" -and ($rule2.Rationale.SubString(0,25)) -eq ($rule.Rationale.SubString(0,25))) {
                     $found = 1
                     break                        
-                } elseIf ($action -eq ":arrow_forward:" -and ($rule2.Rationale.SubString(0,30)) -eq ($rule.Rationale.SubString(0,30)) -and ($rule2.Rationale -ne $rule.Rationale)) {
+                } elseIf ($action -eq ":arrow_forward:" -and ($rule2.Rationale.SubString(0,25)) -eq ($rule.Rationale.SubString(0,25)) -and ($rule2.Rationale -ne $rule.Rationale)) {
 					Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale $rule2.Rationale
                     $found = 2
                     break   
