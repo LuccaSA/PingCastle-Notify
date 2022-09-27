@@ -163,7 +163,7 @@ if (-not (Test-Path $pingCastleReportLogs)) {
 # Try to start program and catch any error
 try {
     Set-Location -Path $PingCastle.ProgramPath
-    #Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
+    Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
 }
 Catch {
     Write-Error -Message ("Error for execute {0}" -f $pingCastleFullpath)
