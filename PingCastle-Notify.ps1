@@ -121,19 +121,19 @@ Function DiffReport($xml1,$xml2,$action) {
     Foreach ($rule in $xml1) {
         $found = 0
         Foreach ($rule2 in $xml2) {
-            if ($rule.Rationale -and $rule2.Rationale) {
-                if ($action -ne ":arrow_forward:" -and ($rule2.Rationale.SubString(0,30)) -eq ($rule.Rationale.SubString(0,30))) {
+            if ($rule.RiskId -and $rule2.RiskId) {
+                # if not warning and ...
+                if ($action -ne ":arrow_forward:" -and ($rule2.RiskId -eq $rule.RiskId)) {
                     $found = 1
-                    break                        
-                } elseIf ($action -eq ":arrow_forward:" -and ($rule2.Rationale.SubString(0,30)) -eq ($rule.Rationale.SubString(0,30)) -and ($rule2.Rationale -ne $rule.Rationale)) {
-					Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale $rule2.Rationale
+                    break
+                # else if warning and                       
+                } elseIf ($action -eq ":arrow_forward:" -and ($rule2.RiskId -eq $rule.RiskId) -and ($rule2.Rationale -ne $rule.Rationale)) {
                     $found = 2
                     break   
                 }
             }
         }
         if ($found -eq 0 -and $rule.Rationale -and $action -ne ":arrow_forward:") {
-            Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale
             If ($action -eq ":heavy_exclamation_mark:") {
                 $result = $result + $action  + " *+" + $rule.Points + "* - " + $rule.Rationale + "`n"
             } else {
