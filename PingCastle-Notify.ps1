@@ -59,6 +59,7 @@ Domain *domain_env* - date_scan - *Global Score abc* :
 - Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
 - add_new_vuln";
     icon_emoji = ":ghost:"
+    username = "PingCastle Automatic run"
 }
 
 # function to deal with slack color
@@ -289,6 +290,7 @@ try {
             thread_ts = $r.ts
             text = $final_thread;
             icon_emoji = ":ghost:"
+	    username = "PingCastle Automatic run"
         }
         Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $headers -Body $BodySlack2 -Method Post
     }
