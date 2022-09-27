@@ -85,7 +85,7 @@ Function Add_Color($p){
 
 # function extract HealthcheckRiskRule data
 Function ExtractXML($xml,$category) {
-    $value = $xml.HealthcheckRiskRule | Select-Object Category, Points, Rationale | Where-Object Category -eq $category 
+    $value = $xml.HealthcheckRiskRule | Select-Object Category, Points, Rationale, RiskId | Where-Object Category -eq $category 
     if ($value -eq $null)
     {
         $value = New-Object psobject -Property @{
