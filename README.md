@@ -101,6 +101,7 @@ On your Windows Server go to
 - Vincent Le Toux - https://twitter.com/mysmartlogon
 - Romain Tiennot - https://github.com/aikiox
 - Lilian Arago - https://github.com/NahisWayard
+- Romain Bourgue
 
 ## License
 
