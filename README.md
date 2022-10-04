@@ -1,11 +1,16 @@
 PingCastle Notify
 ===
 
-PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack or Teams channel.
-The slack/teams message will notify you regarding the different states: correction, recession etc
+PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack / Teams channel or a log file !
+
+The slack/teams/log message will notify you regarding the different states: correction, recession etc
+
 <p align="center">
 
-![image](https://user-images.githubusercontent.com/5891788/193589130-c22d23fc-3a24-4427-9385-69cfdf362175.png)
+![image](https://user-images.githubusercontent.com/5891788/193772010-949bd9d4-4d73-4df6-ad24-5ee2115fa9b2.png)
+
+
+> :warning: If you don't want to use Slack or Teams set the variable `$teams` and `$slack` to 0 inside the ps1 script. Skip the step "Create a BOT" and check the log file inside the **Reports** folder.
 
 </p>
 <hr>
