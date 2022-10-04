@@ -251,10 +251,10 @@ if (-not ($old_report.FullName)) {
     $result = ""
     Foreach ($rule in $newCategoryContent) {
 
-        $action = ":heavy_exclamation_mark: **+"
+        $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
             $rule.Rationale = $rule.Rationale.replace("'", "\'")
-            $result = $result + $action + $rule.Points + "** - " + $rule.Rationale + "`n`n"
+            $result = $result + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
         }
     }
     $final_thread = $result
