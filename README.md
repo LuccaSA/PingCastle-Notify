@@ -1,17 +1,22 @@
 PingCastle Notify
 ===
 
-PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack channel.
-The slack message will notify you regarding the different states: correction, recession etc
+PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack or Teams channel.
+The slack/teams message will notify you regarding the different states: correction, recession etc
 <p align="center">
 
-![image](https://user-images.githubusercontent.com/5891788/192321307-514b6fc5-2ce0-4018-8876-1079718eb674.png)
+![image](https://user-images.githubusercontent.com/5891788/193589130-c22d23fc-3a24-4427-9385-69cfdf362175.png)
+
 </p>
 <hr>
 <details>
 <summary>:arrow_forward: <b>First scan</b></summary>
 
-![image](https://user-images.githubusercontent.com/5891788/191265007-57656f04-12ed-4e93-af36-90b0711aa412.png)
+Slack             | Teams
+:-------------------------:|:-------------------------:
+![image](https://user-images.githubusercontent.com/5891788/191265007-57656f04-12ed-4e93-af36-90b0711aa412.png)  |   ![image](https://user-images.githubusercontent.com/5891788/193760283-ef171f2d-6992-44b7-ad8e-8b3f113ffe3d.png)
+
+
 </details>
 <details>
 <summary>:arrow_forward: <b>No new vulnerability but some rules have been updated</b></summary>
@@ -23,12 +28,21 @@ The slack message will notify you regarding the different states: correction, re
 
 <summary>:arrow_forward: <b>New vulnerabilty</b></summary>
 
-![image](https://user-images.githubusercontent.com/5891788/191268156-cb1c1884-beef-421e-9aae-75661e071abf.png)
+Slack             | Teams
+:-------------------------:|:-------------------------:
+![image](https://user-images.githubusercontent.com/5891788/191268156-cb1c1884-beef-421e-9aae-75661e071abf.png)  |   ![image](https://user-images.githubusercontent.com/5891788/193760136-668fca48-9ddf-47dd-b82a-0708117954f1.png)
+
+
 </details>
 <details>
 <summary>:arrow_forward: <b>Some vulnerability have been removed</b></summary>
 
-![image](https://user-images.githubusercontent.com/5891788/191265798-0ef01763-6401-4c51-9d7d-8bf6f5ab246d.png)  
+Slack             | Teams
+:-------------------------:|:-------------------------:
+![image](https://user-images.githubusercontent.com/5891788/191265798-0ef01763-6401-4c51-9d7d-8bf6f5ab246d.png)   |   ![image](https://user-images.githubusercontent.com/5891788/193760223-8658c35c-0ef3-4012-8679-8946987f4e4a.png)
+ 
+
+
 </details>
 <details>
 <summary>:arrow_forward: <b>No new vulnerability</b></summary>
@@ -47,6 +61,7 @@ SECU-TOOL-SCAN/
         - Reports/
             - domain.local.xml
             - domain.local.html
+            - scan.logs <-- contains the logs of the scan (diff scan)
         - Pingcastle.exe
         - ...
 ```
@@ -58,7 +73,10 @@ SECU-TOOL-SCAN/
 3. Create a "**Reports**" folder inside the PingCastle folder
 4. Download and add the file `PingCastle-Notify.ps1` on the parent directory
 
-#### Create a Slack application
+#### Create a BOT
+
+<details>
+<summary>:arrow_forward: <b>Slack BOT</b></summary>
 
 1. In Slack create an application https://api.slack.com/apps
 2. Add the following rights
@@ -74,12 +92,25 @@ SECU-TOOL-SCAN/
 6. Add the channel to the script
 7. Run the script to test using this command: 
    `powershell.exe -exec bypass C:\YOUR_PATH\SECU-TOOL-SCAN\PingCastle-Notify.ps1`
+</details>
+<details>
+<summary>:arrow_forward: <b>Teams BOT</b></summary>
+
+1. Create a channel **pingcastle-scan**
+2. Click on the "..." dots and select "Connectors"
+3. Search for **Webhook**
+4. Add the webhook
+5. Re-click on the connectors button and on the webhook click **"configure"**
+6. Add a title and a logo and click **Create**, copy the wehbook URL
+7. Add the url on the variable `$teamsUri`
+8. Set the variable `$teams` to 1 and `$slack` to 0
+</details>
 
 #### Deploy a Scheduled Task
 
 On your Windows Server go to
 
-1. Create a service account that will run the PS1 script every night
+1. Create a service account that will run the PS1 script every night (no need to set the service account as domain admin)
 2. Give privileges to the service account on the folder "Reports"
 
 ![image](https://user-images.githubusercontent.com/5891788/191264615-ab0b9479-b869-4cbf-9e74-499ca0b38c4e.png)
