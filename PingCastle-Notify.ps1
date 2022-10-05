@@ -327,11 +327,6 @@ if ($sentNotification -eq $false) {
 # Move report to logs directory
 try {
     Write-Information "Sending information by email, webhook, etc..."
-    # write log report
-    "Last scan " + $dateScan | out-file -append $logreport 
-    $BodySlack.Text | out-file -append $logreport
-    $final_thread + "`n" | out-file -append $logreport
-
     if ($slack) {
         $r = Send_WebHook $BodySlack "slack"
         if ($final_thread) {
@@ -352,6 +347,13 @@ try {
         $BodyTeams = $BodyTeams.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
         $r = Send_WebHook $BodyTeams "teams"
     }
+    # write log report
+    "Last scan " + $dateScan | out-file -append $logreport 
+    $log = $BodySlack.Text + "`n" 
+    $log = $log + $final_thread
+    $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
+    $log | out-file -append $logreport
+    $log
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
     Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
@@ -361,7 +363,6 @@ try {
 catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)
 }
-
 # Try to start update program and catch any error
 try {
     Write-Information "Trying to update"
