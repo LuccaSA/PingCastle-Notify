@@ -286,7 +286,7 @@ if (-not ($old_report.FullName)) {
     # write message regarding previous score
     if ([int]$previous_score -eq [int]$total_point -and (IsEqual $StaleObjects_old $StaleObjects) -and (IsEqual $PrivilegedAccounts_old $PrivilegedAccounts) -and (IsEqual $Anomalies_old $Anomalies) -and (IsEqual $Trusts_old $Trusts)) {
         if ($addedVuln -or $removedVuln -or $warningVuln) {
-            $sentNotification = $True, 
+            $sentNotification = $True
             $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
             $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
         } else {
