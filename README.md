@@ -55,6 +55,19 @@ Slack             | Teams
 No result in slack since reports are the same
 </details>
 
+---
+<details>
+<summary>:beginner: <b>Adding the result of the current scan</b></summary>
+
+Set the variable `$print_current_result` to 1 in the script, the rules flagged on the current scan will be added as a thread into Slack or after the rule diff on Teams.
+
+Slack             | Teams
+:-------------------------:|:-------------------------:
+![image](https://user-images.githubusercontent.com/5891788/194527966-f13e0f85-cff6-4e22-86b1-00f871b29cc2.png)  |   ![Teams_8N2r3YiVh4](https://user-images.githubusercontent.com/5891788/194527837-8f6f0910-aa17-47d2-bfee-01d4defa569b.png)
+</details>
+
+
+
 ## How to install ?
 
 ### Structure of the project
