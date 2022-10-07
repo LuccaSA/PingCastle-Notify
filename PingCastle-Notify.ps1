@@ -167,14 +167,12 @@ Function DiffReport($xml1,$xml2,$action) {
         }
         if ($found -eq 0 -and $rule.Rationale -and $action -ne ":arrow_forward:") {
             Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale  $rule2.RiskId $rule.RiskId
-            $rule.Rationale = $rule.Rationale.replace("'", "\'")
             If ($action -eq ":heavy_exclamation_mark:") {
                 $result = $result + $action  + " *+" + $rule.Points + "* - " + $rule.Rationale + "`n"
             } else {
                 $result = $result + $action  + " *-" + $rule.Points + "* - " + $rule.Rationale + "`n"
             }
         } elseIf ($found -eq 2 -and $rule.Rationale) {
-            $rule.Rationale = $rule.Rationale.replace("'", "\'")
             $result = $result + $action  + " *" + $rule.Points + "* - " + $rule.Rationale + "`n"
         }
     } 
@@ -253,7 +251,6 @@ if (-not ($old_report.FullName)) {
 
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
-            $rule.Rationale = $rule.Rationale.replace("'", "\'")
             $result = $result + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
         }
     }
@@ -341,6 +338,7 @@ try {
         }
     } 
     if ($teams) {
+        $final_thread = $final_thread.replace("'", "\'")
         $BodyTeams = $BodyTeams + $final_thread + "'}"
         $BodyTeams = $BodyTeams.Replace("*","**").Replace("`n","`n`n")
         $BodyTeams = $BodyTeams.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
