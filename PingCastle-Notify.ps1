@@ -7,6 +7,7 @@
         - rule diff between two pingcastle scan
         - teams integration
 	- scan log integration
+	- option $print_current_result to add all flaged rules
     date: 14/09/2022
     verion: 1.1
 #>
@@ -16,7 +17,8 @@ $slackChannel = "#pingcastle-scan"
 $slackToken="xoxb-xxxxx-xxxxx-xxxxx-xxxxx"
 $slack = 1
 $teams = 0
-$teamsUri = "https://xxxxxxxxx.office.com/webhookb2/xxxxxxxxxxxxx/IncomingWebhook/xxxxxxxxx/xxxxxxxxx" 
+$teamsUri = "https://xxxxxxxxx.office.com/webhookb2/xxxxxxxxxxxxx/IncomingWebhook/xxxxxxxxx/xxxxxxxxx"
+$print_current_result = 0
 ### END ###
 
 $ErrorActionPreference = 'Stop'
@@ -256,6 +258,16 @@ if (-not ($old_report.FullName)) {
     }
     $final_thread = $result
 } else {
+    $current_scan = ""
+    $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
+    Foreach ($rule in $newCategoryContent) {
+
+        $action = ":heavy_exclamation_mark: *+"
+        if ($rule.RiskId) {
+            $current_scan = $current_scan + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
+        }
+    }
+    $current_scan = "`n`---`n" + $current_scan
     # Get content of previous PingCastle score
     try {
         $pingCastleOldReportXMLFullpath = $old_report.FullName
@@ -335,11 +347,27 @@ try {
                 username = "PingCastle Automatic run"
             }
             Send_WebHook $BodySlack2 "slack"
+            if ($print_current_result) {
+                $BodySlack3 = @{
+                    channel = $r.channel;
+                    thread_ts = $r.ts
+                    text = $current_scan;
+                    icon_emoji = ":ghost:"
+                    username = "PingCastle Automatic run"
+                }
+                Send_WebHook $BodySlack3 "slack"
+            }
         }
     } 
     if ($teams) {
+        $current_scan = $current_scan.replace("'", "\'")
         $final_thread = $final_thread.replace("'", "\'")
-        $BodyTeams = $BodyTeams + $final_thread + "'}"
+        if ($print_current_result) {
+            $BodyTeams = $BodyTeams + $final_thread + $current_scan + "'}"
+        }
+        else {
+            $BodyTeams = $BodyTeams + $final_thread + "'}"
+        }
         $BodyTeams = $BodyTeams.Replace("*","**").Replace("`n","`n`n")
         $BodyTeams = $BodyTeams.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
         $BodyTeams = $BodyTeams.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
@@ -351,7 +379,9 @@ try {
     $log = $log + $final_thread
     $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
     $log | out-file -append $logreport
+
     $log
+
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
     Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
@@ -361,6 +391,7 @@ try {
 catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)
 }
+
 # Try to start update program and catch any error
 try {
     Write-Information "Trying to update"
