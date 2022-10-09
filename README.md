@@ -1,7 +1,9 @@
 PingCastle Notify
 ===
 
-PingCastle Notify will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack / Teams channel or a log file !
+PingCastle Notify is a tool that will monitor your PingCastle reports ! You will be notified every time a change between a scan and a previous scan is made.
+
+How it works ? PingCastle-Notify is a PS1 script that will run a PingCastle scan, compare the difference between a previous scan, highlight the diff and send the result into a Slack / Teams channel or a log file !
 
 The slack/teams/log message will notify you regarding the different states: correction, recession etc
 
