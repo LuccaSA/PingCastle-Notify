@@ -137,9 +137,10 @@ On your Windows Server go to
 
 3. Run taskschd.msc to open the Scheduler Task
 4. Create a Task and use the service account you just created
-5. Give the permission "Log on as Batch Job" to service account https://danblee.com/log-on-as-batch-job-rights-for-task-scheduler/
-6. Run the scheduled task to test the result
-7. Enjoy :)
+5. In Actions tab set "Start a program" -> "Script": `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` -> "Arguments" -> `-exec bypass -f C:\PINGCASTLE\Pingcastle-Notify.ps1`
+6. Give the permission "Log on as Batch Job" to service account https://danblee.com/log-on-as-batch-job-rights-for-task-scheduler/
+7. Run the scheduled task to test the result
+8. Enjoy :)
 
 <p align="center">
 <img width="600" height="400" src="https://user-images.githubusercontent.com/5891788/191264530-bb4f2700-d91b-4e94-8bb8-ea57238e90ca.png">
