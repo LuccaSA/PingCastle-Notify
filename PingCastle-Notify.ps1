@@ -347,16 +347,16 @@ try {
                 username = "PingCastle Automatic run"
             }
             Send_WebHook $BodySlack2 "slack"
-            if ($print_current_result) {
-                $BodySlack3 = @{
-                    channel = $r.channel;
-                    thread_ts = $r.ts
-                    text = $current_scan;
-                    icon_emoji = ":ghost:"
-                    username = "PingCastle Automatic run"
-                }
-                Send_WebHook $BodySlack3 "slack"
+        }
+        if ($print_current_result) {
+            $BodySlack3 = @{
+                channel = $r.channel;
+                thread_ts = $r.ts
+                text = $current_scan;
+                icon_emoji = ":ghost:"
+                username = "PingCastle Automatic run"
             }
+            Send_WebHook $BodySlack3 "slack"
         }
     } 
     if ($teams) {
