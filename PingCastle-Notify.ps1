@@ -239,6 +239,7 @@ $BodyTeams = Update_Body($BodyTeams)
 
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 $old_report.FullName
+$current_scan = ""
 $final_thread = ""
 # Check if PingCastle previous score file exist
 if (-not ($old_report.FullName)) {
@@ -258,7 +259,6 @@ if (-not ($old_report.FullName)) {
     }
     $final_thread = $result
 } else {
-    $current_scan = ""
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     Foreach ($rule in $newCategoryContent) {
 
