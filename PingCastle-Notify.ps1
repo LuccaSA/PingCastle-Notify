@@ -89,7 +89,7 @@ $BodySlack = @{
                 },
                 @{
                     "value" = ""
-                    "short" = "False"
+                    "short" = $False
                 }
             )
             "footer" = "<https://github.com/LuccaSA/PingCastle-Notify|Pingcastle-Notify> v1.2"
@@ -460,7 +460,5 @@ try {
     Write-Information "Update completed"
 }
 Catch {
-    Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
-}
     Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
 }
