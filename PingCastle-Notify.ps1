@@ -9,7 +9,7 @@
         - scan log integration
         - option $print_current_result to add all flaged rules
     date: 14/09/2022
-    verion: 1.1
+    version: 1.1
     change:
         - better slack integration with color
     date: 22/02/2024
@@ -22,7 +22,7 @@ $slackToken="xoxb-xxxxx-xxxxx-xxxxx-xxxxx"
 $slack = 1
 $teams = 0
 $teamsUri = "https://xxxxxxxxx.office.com/webhookb2/xxxxxxxxxxxxx/IncomingWebhook/xxxxxxxxx/xxxxxxxxx"
-$print_current_result = 0
+$print_current_result = 1
 ### END ###
 
 $ErrorActionPreference = 'Stop'
