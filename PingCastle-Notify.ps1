@@ -140,16 +140,16 @@ Function Send_WebHook($body, $connector) {
 # function update body
 Function Update_Body($body, $connector) {
         if ($connector -eq "slack") {
-        $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *" + $str_total_point + "* : "
-        $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
-        $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
-        $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
-        $body['attachments'][0]['fields'][3]['value'] = $str_anomalies.Split(" ")[1].Trim() + " Anomalies: " + $str_anomalies.Split(" ")[0].Trim()
+            $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *" + $str_total_point + "* : "
+            $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
+            $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
+            $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
+            $body['attachments'][0]['fields'][3]['value'] = $str_anomalies.Split(" ")[1].Trim() + " Anomalies: " + $str_anomalies.Split(" ")[0].Trim()
 
-        return $body
+            return $body
         }
         if ($connector -eq "teams") {
-        return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+            return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
         }
 }
 
