@@ -6,10 +6,14 @@
         - slack integration
         - rule diff between two pingcastle scan
         - teams integration
-	- scan log integration
-	- option $print_current_result to add all flaged rules
+        - scan log integration
+        - option $print_current_result to add all flaged rules
     date: 14/09/2022
     verion: 1.1
+    change:
+        - better slack integration with color
+    date: 22/02/2024
+    version: 1.2
 #>
 
 ### EDIT THIS PARAMETERS ###
@@ -61,12 +65,39 @@ $splatProcess = @{
 
 $BodySlack = @{
     channel = $slackChannel;
-    text = "
-Domain *domain_env* - date_scan - *Global Score abc* : 
-- Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
-- add_new_vuln";
-    icon_emoji = ":ghost:"
-    username = "PingCastle Automatic run"
+    attachments = @(
+        @{
+            "mrkdwn_in" = @("text")
+            "color" = ""
+            "text" = ""
+            "fields" = @(
+                @{
+                    "value" = ""
+                    "short" = "True"
+                },
+                @{
+                    "value" = ""
+                    "short" = "True"
+                },
+                @{
+                    "value" = ""
+                    "short" = "True"
+                },
+                @{
+                    "value" = ""
+                    "short" = "True"
+                },
+                @{
+                    "value" = ""
+                    "short" = "False"
+                }
+            )
+            "footer" = "<https://github.com/LuccaSA/PingCastle-Notify|Pingcastle-Notify> v1.2"
+            "footer_icon" = "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
+        }
+    );
+    icon_emoji = ":ghost:";
+    username = "PingCastle Automatic run";
 }
 
 $BodyTeams = @"
@@ -76,11 +107,29 @@ $BodyTeams = @"
 - add_new_vuln
 "@
 
+# Function update slack color
+Function updateSlackColor($body, $point) {
+        if ($point -ge 75) {
+        $body['attachments'][0]['color'] = "#f12828"
+    } elseIf ($point -ge 50 -and $point -lt 75) {
+        $body['attachments'][0]['color'] = "#ff6a00"
+    } elseIf ($point -ge 25 -and $point -lt 50) {
+        $body['attachments'][0]['color'] = "#ffd800"
+    } elseIf ($point -ge 0 -and $point -lt 25) {
+        $body['attachments'][0]['color'] = "#83e043"
+    } else {
+        $body['attachments'][0]['color'] = "#83e043"
+    }
+        return $body
+}
+
 # function send to slack
 Function Send_WebHook($body, $connector) {
     if ($slack -and $connector -eq "slack") {
+        $BodySlackJson = $body | ConvertTo-Json -Depth 5
+        Write-Host $BodySlackJson
         Write-Host "Sending to slack"
-        return Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $headers -Body $body -Method Post
+        return Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $headers -Body $BodySlackJson -Method Post -ContentType 'application/json'
     }
     if ($teams -and $connector -eq "teams") {
         Write-Host "Sending to teams"
@@ -89,8 +138,19 @@ Function Send_WebHook($body, $connector) {
 }
 
 # function update body
-Function Update_Body($body) {
-    return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+Function Update_Body($body, $connector) {
+        if ($connector -eq "slack") {
+        $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *" + $str_total_point + "* : "
+        $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
+        $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
+        $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
+        $body['attachments'][0]['fields'][3]['value'] = $str_anomalies.Split(" ")[1].Trim() + " Anomalies: " + $str_anomalies.Split(" ")[0].Trim()
+
+        return $body
+        }
+        if ($connector -eq "teams") {
+        return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+        }
 }
 
 # function to deal with slack color
@@ -234,8 +294,9 @@ $str_trusts = Add_Color $Trusts
 $str_staleObject = Add_Color $StaleObjects
 $str_privilegeAccount = Add_Color $PrivilegedAccounts
 $str_anomalies = Add_Color $Anomalies
-$BodySlack.Text = Update_Body($BodySlack.Text)
-$BodyTeams = Update_Body($BodyTeams)
+$BodySlack = updateSlackColor $BodySlack $total_point
+$BodySlack = Update_Body $BodySlack "slack"
+$BodyTeams = Update_Body $BodyTeams "teams"
 
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 $old_report.FullName
@@ -246,7 +307,7 @@ if (-not ($old_report.FullName)) {
     # if don't exist, sent report
     $sentNotification = $true
     Write-Host "First time run"
-    $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "First PingCastle scan ! :tada:")
+        $BodySlack['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
     $BodyTeams = $BodyTeams.Replace("add_new_vuln", "First PingCastle scan ! &#129395; `n`n ")
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
@@ -296,28 +357,28 @@ if (-not ($old_report.FullName)) {
     if ([int]$previous_score -eq [int]$total_point -and (IsEqual $StaleObjects_old $StaleObjects) -and (IsEqual $PrivilegedAccounts_old $PrivilegedAccounts) -and (IsEqual $Anomalies_old $Anomalies) -and (IsEqual $Trusts_old $Trusts)) {
         if ($addedVuln -or $removedVuln -or $warningVuln) {
             $sentNotification = $True
-            $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
+            $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability yet some rules have changed !"
             $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
         } else {
             $sentNotification = $False
-            $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "There is no new vulnerability ! :tada:")
+            $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability ! :tada:"
             $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability ! &#129395;")
 
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
         Write-Host "rage"
         $sentNotification = $true
-        $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: ")
+        $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged **+" + [string]([int]$total_point-[int]$previous_score) + " points** &#128544; `n`n")
     } elseIf  ([int]$previous_score -gt [int]$total_point) {
         Write-Host "no rage"
         $sentNotification = $true
-        $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: ")
+        $BodySlack['attachments'][0]['fields'][4]['value'] = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* &#128516; `n`n")
     } else {
         Write-Host "same global score but different score in categories"
         $sentNotification = $true
-        $BodySlack.Text = $BodySlack.Text.Replace("add_new_vuln", "New rules flagged but also some fix, yet same score than previous scan")
+        $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged but also some fix, yet same score than previous scan"
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged but also some fix, yet same score than previous scan `n`n")
     }
     $final_thread = $addedVuln + $removedVuln + $warningVuln
@@ -375,7 +436,7 @@ try {
     }
     # write log report
     "Last scan " + $dateScan | out-file -append $logreport 
-    $log = $BodySlack.Text + "`n" 
+    $log = $BodyTeams 
     $log = $log + $final_thread
     $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
     $log | out-file -append $logreport
@@ -399,5 +460,7 @@ try {
     Write-Information "Update completed"
 }
 Catch {
+    Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
+}
     Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
 }
