@@ -140,7 +140,7 @@ Function Send_WebHook($body, $connector) {
 # function update body
 Function Update_Body($body, $connector) {
         if ($connector -eq "slack") {
-            $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *" + $str_total_point + "* : "
+            $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *Global Score " + [string]$total_point + "* : "
             $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
             $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
             $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
