@@ -439,6 +439,7 @@ try {
     $log = $BodyTeams 
     $log = $log + $final_thread
     $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
+    $log = $log.Replace("{","").Replace("   text:'","").Replace("&#129395;","")
     $log | out-file -append $logreport
 
     $log
