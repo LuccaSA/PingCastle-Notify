@@ -14,14 +14,22 @@
         - better slack integration with color
     date: 22/02/2024
     version: 1.2
+    change:
+        - element integration by @pedrinazziM
+    date: 11/06/2024
+    version: 1.3
 #>
 
 ### EDIT THIS PARAMETERS ###
 $slackChannel = "#pingcastle-scan"
 $slackToken="xoxb-xxxxx-xxxxx-xxxxx-xxxxx"
-$slack = 1
+$slack = 0
 $teams = 0
 $teamsUri = "https://xxxxxxxxx.office.com/webhookb2/xxxxxxxxxxxxx/IncomingWebhook/xxxxxxxxx/xxxxxxxxx"
+$element = 0
+$elementUri = "..."
+$usernameMaubot = "..."
+$passwordMaubot = "..."
 $print_current_result = 1
 ### END ###
 
@@ -107,6 +115,12 @@ $BodyTeams = @"
 - add_new_vuln
 "@
 
+$BodyElement = @"
+Domain *domain_env* - date_scan - *Global Score abc* : 
+- Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
+- add_new_vuln
+"@
+
 # Function update slack color
 Function updateSlackColor($body, $point) {
         if ($point -ge 75) {
@@ -135,6 +149,18 @@ Function Send_WebHook($body, $connector) {
         Write-Host "Sending to teams"
         return Invoke-RestMethod -Method post -ContentType 'application/Json' -Body $body -Uri $teamsUri
     }
+    if ($element -and $connector -eq "element") {
+        Write-Host "Sending to element"
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(("${usernameMaubot}:${passwordMaubot}")))
+        $payload = @{
+            msg = $body
+        }
+        $payloadJson = $payload | ConvertTo-Json
+        Write-Host $payloadJson
+        return Invoke-RestMethod -Method post -ContentType 'application/Json' -Body $payloadJson -Uri $elementUri -Headers @{
+            Authorization = "Basic $base64AuthInfo"
+        }
+    }
 }
 
 # function update body
@@ -148,7 +174,7 @@ Function Update_Body($body, $connector) {
 
             return $body
         }
-        if ($connector -eq "teams") {
+        if ($connector -eq "teams" -or $connector -eq "element") {
             return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
         }
 }
@@ -297,6 +323,7 @@ $str_anomalies = Add_Color $Anomalies
 $BodySlack = updateSlackColor $BodySlack $total_point
 $BodySlack = Update_Body $BodySlack "slack"
 $BodyTeams = Update_Body $BodyTeams "teams"
+$BodyElement = Update_Body $BodyElement "element"
 
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 $old_report.FullName
@@ -309,6 +336,7 @@ if (-not ($old_report.FullName)) {
     Write-Host "First time run"
         $BodySlack['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
     $BodyTeams = $BodyTeams.Replace("add_new_vuln", "First PingCastle scan ! &#129395; `n`n ")
+    $BodyElement = $BodyElement.Replace("add_new_vuln", "First PingCastle scan ! &#129395; `n`n ")
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
     Foreach ($rule in $newCategoryContent) {
@@ -359,10 +387,12 @@ if (-not ($old_report.FullName)) {
             $sentNotification = $True
             $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability yet some rules have changed !"
             $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
+            $BodyElement = $BodyElement.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
         } else {
             $sentNotification = $False
             $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability ! :tada:"
             $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability ! &#129395;")
+            $BodyElement = $BodyElement.Replace("add_new_vuln", "There is no new vulnerability ! &#129395;")
 
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
@@ -370,16 +400,19 @@ if (-not ($old_report.FullName)) {
         $sentNotification = $true
         $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged **+" + [string]([int]$total_point-[int]$previous_score) + " points** &#128544; `n`n")
+        $BodyElement = $BodyElement.Replace("add_new_vuln", "New rules flagged **+" + [string]([int]$total_point-[int]$previous_score) + " points** &#128544; `n`n")
     } elseIf  ([int]$previous_score -gt [int]$total_point) {
         Write-Host "no rage"
         $sentNotification = $true
         $BodySlack['attachments'][0]['fields'][4]['value'] = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* &#128516; `n`n")
+        $BodyElement = $BodyElement.Replace("add_new_vuln", "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* &#128516; `n`n")
     } else {
         Write-Host "same global score but different score in categories"
         $sentNotification = $true
         $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged but also some fix, yet same score than previous scan"
         $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged but also some fix, yet same score than previous scan `n`n")
+        $BodyElement = $BodyElement.Replace("add_new_vuln", "New rules flagged but also some fix, yet same score than previous scan `n`n")
     }
     $final_thread = $addedVuln + $removedVuln + $warningVuln
 }
@@ -433,6 +466,20 @@ try {
         $BodyTeams = $BodyTeams.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
         $BodyTeams = $BodyTeams.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
         $r = Send_WebHook $BodyTeams "teams"
+    }
+    if ($element) {
+        $current_scan = $current_scan.replace("'", "\'")
+        $final_thread = $final_thread.replace("'", "\'")
+        if ($print_current_result) {
+            $BodyElement = $BodyElement + $final_thread + $current_scan
+        }
+        else {
+            $BodyElement = $BodyElement + $final_thread
+        }
+        $BodyElement = $BodyElement.Replace("*","**").Replace("`n","  `n")
+        $BodyElement = $BodyElement.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
+        $BodyElement = $BodyElement.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
+        $r = Send_WebHook $BodyElement "element"
     }
     # write log report
     "Last scan " + $dateScan | out-file -append $logreport 
