@@ -156,7 +156,6 @@ Function Send_WebHook($body, $connector) {
             msg = $body
         }
         $payloadJson = $payload | ConvertTo-Json
-        Write-Host $payloadJson
         return Invoke-RestMethod -Method post -ContentType 'application/Json' -Body $payloadJson -Uri $elementUri -Headers @{
             Authorization = "Basic $base64AuthInfo"
         }
