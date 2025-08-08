@@ -1,0 +1,36 @@
+# Environment configuration file (contains sensitive data)
+.env
+
+# PingCastle executable and related files
+PingCastle/
+PingCastle.exe
+PingCastleAutoUpdater.exe
+
+# Reports and logs (may contain sensitive domain information)
+Reports/
+*.xml
+*.html
+scan.log
+
+# PowerShell module cache
+*.psm1.cache
+
+# Temporary files
+*.tmp
+*.temp
+
+# Windows files
+Thumbs.db
+desktop.ini
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

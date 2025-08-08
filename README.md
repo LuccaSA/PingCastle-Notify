@@ -11,7 +11,7 @@ The slack/teams/log message will notify you regarding the different states: corr
 
 ![image](https://github.com/LuccaSA/PingCastle-Notify/assets/5891788/35eb7e52-600e-4c15-bcb3-f57bf0b2a89f)
 
-> :warning: If you don't want to use Slack or Teams set the variable `$teams` and `$slack` to 0 inside the ps1 script. Skip the step "Create a BOT" and check the log file inside the **Reports** folder.
+> :warning: If you don't want to use Slack or Teams set `SLACK_ENABLED=0` and `TEAMS_ENABLED=0` in the `.env` file. Skip the step "Create a BOT" and check the log file inside the **Reports** folder.
 
 </p>
 <hr>
@@ -76,6 +76,10 @@ Slack             | Teams
 ```
 SECU-TOOL-SCAN/
     - PingCastle-Notify.ps1
+    - .env                  <-- Configuration file
+    - modules/
+        - Slack.psm1
+        - Teams.psm1
     - PingCastle/
         - Reports/
             - domain.local.xml
@@ -90,7 +94,45 @@ SECU-TOOL-SCAN/
 1. Download PingCastle
 2. Unzip the archive
 3. Create a "**Reports**" folder inside the PingCastle folder
-4. Download and add the file `PingCastle-Notify.ps1` on the parent directory
+4. Download the PingCastle-Notify repository
+5. Copy `.env.example` to `.env` and configure your settings
+
+#### Configuration
+
+Create a `.env` file in the root directory with your configuration:
+
+```bash
+# Copy the example file
+cp .env.example .env
+```
+
+Then edit the `.env` file with your settings:
+
+```properties
+# Slack Configuration
+SLACK_CHANNEL=#pingcastle-scan
+SLACK_TOKEN=xoxb-your-slack-bot-token-here
+SLACK_ENABLED=1
+
+# Teams Configuration  
+TEAMS_ENABLED=0
+TEAMS_URI=https://your-org.webhook.office.com/webhookb2/your-webhook-url-here
+
+# Report Configuration
+PRINT_CURRENT_RESULT=1
+
+# Domain Configuration
+DOMAIN=your-domain.local
+```
+
+**Configuration Options:**
+- `SLACK_ENABLED`: Set to `1` to enable Slack notifications, `0` to disable
+- `SLACK_CHANNEL`: The Slack channel to send notifications to (include the #)
+- `SLACK_TOKEN`: Your Slack bot token (starts with `xoxb-`)
+- `TEAMS_ENABLED`: Set to `1` to enable Teams notifications, `0` to disable
+- `TEAMS_URI`: Your Teams webhook URL
+- `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
+- `DOMAIN`: Your domain name (optional, will use `$env:USERDNSDOMAIN` if not set)
 
 #### Create a BOT
 
@@ -105,11 +147,12 @@ SECU-TOOL-SCAN/
    
 ![image](https://user-images.githubusercontent.com/5891788/191264679-7942173b-bb1f-4dd1-a936-4e97acdb1b5e.png)
 
-3. Get your token add it to the PingCastle-Notify.ps1 script
+3. Get your token and add it to the `.env` file as `SLACK_TOKEN`
 4. Create a slack channel and add your bot user to the channel
 5. You can test your bot using https://api.slack.com/methods/chat.postMessage/test
-6. Add the channel to the script
-7. Run the script to test using this command: 
+6. Add the channel to the `.env` file as `SLACK_CHANNEL`
+7. Set `SLACK_ENABLED=1` in your `.env` file
+8. Run the script to test using this command: 
    `powershell.exe -exec bypass C:\YOUR_PATH\SECU-TOOL-SCAN\PingCastle-Notify.ps1`
 </details>
 <details>
@@ -120,9 +163,10 @@ SECU-TOOL-SCAN/
 3. Search for **Webhook**
 4. Add the webhook
 5. Re-click on the connectors button and on the webhook click **"configure"**
-6. Add a title and a logo and click **Create**, copy the wehbook URL
-7. Add the url on the variable `$teamsUri`
-8. Set the variable `$teams` to 1 and `$slack` to 0
+6. Add a title and a logo and click **Create**, copy the webhook URL
+7. Update the `.env` file:
+   - Set `TEAMS_ENABLED=1`
+   - Set `TEAMS_URI` to your webhook URL
 </details>
 
 #### Deploy a Scheduled Task
