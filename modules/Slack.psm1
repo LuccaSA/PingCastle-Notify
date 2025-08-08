@@ -151,4 +151,23 @@ function Get-SlackEnabled {
     return $script:slackEnabled
 }
 
-Export-ModuleMember -Function Initialize-SlackConfig, Update-SlackColor, Update-SlackBody, Send-SlackMessage, Send-SlackThread, Get-SlackBody, Get-SlackEnabled
+function Update-SlackFirstScanMessage {
+    param(
+        [hashtable]$body
+    )
+    
+    $body['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
+    return $body
+}
+
+function Update-SlackStatusMessage {
+    param(
+        [hashtable]$body,
+        [string]$message
+    )
+    
+    $body['attachments'][0]['fields'][4]['value'] = $message
+    return $body
+}
+
+Export-ModuleMember -Function Initialize-SlackConfig, Update-SlackColor, Update-SlackBody, Send-SlackMessage, Send-SlackThread, Get-SlackBody, Get-SlackEnabled, Update-SlackFirstScanMessage, Update-SlackStatusMessage

@@ -120,6 +120,34 @@ $splatProcess = @{
 $BodySlack = Get-SlackBody
 $BodyTeams = Get-TeamsBody
 
+# Generic function to update all enabled connectors with first scan message
+Function Update-ConnectorsFirstScan($slackBody, $teamsBody) {
+    $updatedSlack = $slackBody
+    $updatedTeams = $teamsBody
+    
+    if ($slack) {
+        $updatedSlack = Update-SlackFirstScanMessage -body $slackBody
+    }
+    if ($teams) {
+        $updatedTeams = Update-TeamsFirstScanMessage -body $teamsBody
+    }
+    return @{ Slack = $updatedSlack; Teams = $updatedTeams }
+}
+
+# Generic function to update all enabled connectors with status message
+Function Update-ConnectorsStatus($slackBody, $teamsBody, $message) {
+    $updatedSlack = $slackBody
+    $updatedTeams = $teamsBody
+    
+    if ($slack) {
+        $updatedSlack = Update-SlackStatusMessage -body $slackBody -message $message
+    }
+    if ($teams) {
+        $updatedTeams = Update-TeamsStatusMessage -body $teamsBody -message $message
+    }
+    return @{ Slack = $updatedSlack; Teams = $updatedTeams }
+}
+
 # Function update slack color (deprecated - now handled by module)
 Function updateSlackColor($body, $point) {
     return Update-SlackColor -body $body -point $point
@@ -299,12 +327,15 @@ if (-not ($old_report.FullName)) {
     # if don't exist, sent report
     $sentNotification = $true
     Write-Host "First time run"
-    $BodySlack['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
-    $BodyTeams = $BodyTeams.Replace("add_new_vuln", "First PingCastle scan ! &#129395; `n`n ")
+    
+    # Update all connectors with first scan message
+    $updatedBodies = Update-ConnectorsFirstScan $BodySlack $BodyTeams
+    $BodySlack = $updatedBodies.Slack
+    $BodyTeams = $updatedBodies.Teams
+    
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
     Foreach ($rule in $newCategoryContent) {
-
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
             $result = $result + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
@@ -349,30 +380,29 @@ if (-not ($old_report.FullName)) {
     if ([int]$previous_score -eq [int]$total_point -and (IsEqual $StaleObjects_old $StaleObjects) -and (IsEqual $PrivilegedAccounts_old $PrivilegedAccounts) -and (IsEqual $Anomalies_old $Anomalies) -and (IsEqual $Trusts_old $Trusts)) {
         if ($addedVuln -or $removedVuln -or $warningVuln) {
             $sentNotification = $True
-            $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability yet some rules have changed !"
-            $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability yet some rules have changed !")
+            $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "There is no new vulnerability yet some rules have changed !"
         } else {
             $sentNotification = $False
-            $BodySlack['attachments'][0]['fields'][4]['value'] = "There is no new vulnerability ! :tada:"
-            $BodyTeams = $BodyTeams.Replace("add_new_vuln", "There is no new vulnerability ! &#129395;")
-
+            $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "There is no new vulnerability ! :tada:"
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
         Write-Host "rage"
         $sentNotification = $true
-        $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
-        $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged **+" + [string]([int]$total_point-[int]$previous_score) + " points** &#128544; `n`n")
+        $message = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
+        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams $message
     } elseIf  ([int]$previous_score -gt [int]$total_point) {
         Write-Host "no rage"
         $sentNotification = $true
-        $BodySlack['attachments'][0]['fields'][4]['value'] = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
-        $BodyTeams = $BodyTeams.Replace("add_new_vuln", "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* &#128516; `n`n")
+        $message = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
+        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams $message
     } else {
         Write-Host "same global score but different score in categories"
         $sentNotification = $true
-        $BodySlack['attachments'][0]['fields'][4]['value'] = "New rules flagged but also some fix, yet same score than previous scan"
-        $BodyTeams = $BodyTeams.Replace("add_new_vuln", "New rules flagged but also some fix, yet same score than previous scan `n`n")
+        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "New rules flagged but also some fix, yet same score than previous scan"
     }
+    
+    $BodySlack = $updatedBodies.Slack
+    $BodyTeams = $updatedBodies.Teams
     $final_thread = $addedVuln + $removedVuln + $warningVuln
 }
 

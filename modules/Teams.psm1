@@ -86,4 +86,21 @@ function Get-TeamsEnabled {
     return $script:teamsEnabled
 }
 
-Export-ModuleMember -Function Initialize-TeamsConfig, Update-TeamsBody, Send-TeamsMessage, Format-TeamsMessage, Get-TeamsBody, Get-TeamsEnabled
+function Update-TeamsFirstScanMessage {
+    param(
+        [string]$body
+    )
+    
+    return $body.Replace("add_new_vuln", "First PingCastle scan ! 🎉`n`n")
+}
+
+function Update-TeamsStatusMessage {
+    param(
+        [string]$body,
+        [string]$message
+    )
+    
+    return $body.Replace("add_new_vuln", $message + "`n`n")
+}
+
+Export-ModuleMember -Function Initialize-TeamsConfig, Update-TeamsBody, Send-TeamsMessage, Format-TeamsMessage, Get-TeamsBody, Get-TeamsEnabled, Update-TeamsFirstScanMessage, Update-TeamsStatusMessage
