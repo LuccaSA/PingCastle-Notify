@@ -369,7 +369,7 @@ try {
     Set-Location -Path $PingCastle.ProgramPath
     Write-Host ""
     Write-Host "[+] Running PingCastle scan"
-    #Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
+    Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
 }
 Catch {
     Write-Error -Message ("Error for execute {0}" -f $pingCastleFullpath)
@@ -547,11 +547,11 @@ try {
         Write-Information $log
     }
 
-    # $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
-    # Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
-    # $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
-    # Move-Item -Path $pingCastleReportXMLFullpath -Destination $pingCastleMoveFile
-    # Remove-Item ("{0}.{1}" -f (Join-Path $PingCastle.ProgramPath $PingCastle.ReportFileName), '*')
+    $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
+    Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
+    $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
+    Move-Item -Path $pingCastleReportXMLFullpath -Destination $pingCastleMoveFile
+    Remove-Item ("{0}.{1}" -f (Join-Path $PingCastle.ProgramPath $PingCastle.ReportFileName), '*')
 }
 catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)
