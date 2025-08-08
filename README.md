@@ -191,6 +191,32 @@ On your Windows Server go to
 <img src="https://user-images.githubusercontent.com/5891788/191264503-cb3155a9-f2b3-4fed-b6de-eaf35b47a545.png">
 </p>
 
+## Adding a New Connector
+
+The PingCastle-Notify system is designed to be easily extensible. You can add new notification connectors (Discord, Email, SMS, etc.) by creating a new module file.
+
+### Step 1: Create the Module File
+
+Create a new PowerShell module file in the `modules` folder:
+```
+modules/YourConnector.psm1
+```
+
+### Step 2: Test Your Connector
+
+1. Place your module file in the `modules` folder
+2. Add configuration to `.env`
+3. Run the script - your connector will be automatically discovered and loaded
+4. Check the console output for "Loading module: YourConnector"
+
+### Notes
+
+- **No changes needed** to the main script when adding new connectors
+- The system automatically discovers all `.psm1` files in the `modules` folder
+- Function names must follow the pattern: `FunctionName-YourConnectorName`
+- Your connector will only be used if enabled in the `.env` file
+- Both hashtable and string body types are supported
+
 ## Acknowledgement
 
 - Vincent Le Toux - https://twitter.com/mysmartlogon
@@ -201,3 +227,4 @@ On your Windows Server go to
 ## License
 
 MIT License
+
