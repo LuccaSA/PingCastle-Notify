@@ -55,22 +55,38 @@ Function Read-EnvFile {
     return $envVars
 }
 
-# Import modules
-Import-Module (Join-Path $PSScriptRoot "modules\Slack.psm1") -Force
-Import-Module (Join-Path $PSScriptRoot "modules\Teams.psm1") -Force
-
 # Load environment variables
 $envPath = Join-Path $PSScriptRoot ".env"
 $envVars = Read-EnvFile -Path $envPath
 
 ### CONFIGURATION FROM .env FILE ###
-# Initialize modules with configuration
-Initialize-SlackConfig -envVars $envVars
-Initialize-TeamsConfig -envVars $envVars
+# Dynamically import all connector modules
+$modulePath = Join-Path $PSScriptRoot "modules"
+$connectorModules = @()
+$enabledConnectors = @{}
+
+if (Test-Path $modulePath) {
+    Get-ChildItem -Path $modulePath -Filter "*.psm1" | ForEach-Object {
+        $moduleName = $_.BaseName
+        Write-Information "Loading module: $moduleName"
+        Import-Module $_.FullName -Force
+        $connectorModules += $moduleName
+        
+        # Initialize connector configuration
+        $initFunction = "Initialize-${moduleName}Config"
+        if (Get-Command $initFunction -ErrorAction SilentlyContinue) {
+            & $initFunction -envVars $envVars
+            
+            # Check if connector is enabled
+            $enabledFunction = "Get-${moduleName}Enabled"
+            if (Get-Command $enabledFunction -ErrorAction SilentlyContinue) {
+                $enabledConnectors[$moduleName] = & $enabledFunction
+            }
+        }
+    }
+}
 
 # Get configuration values for backward compatibility
-$slack = Get-SlackEnabled
-$teams = Get-TeamsEnabled
 $print_current_result = if ($envVars["PRINT_CURRENT_RESULT"]) { [int]$envVars["PRINT_CURRENT_RESULT"] } else { 1 }
 $domain = $envVars["DOMAIN"]
 ### END CONFIGURATION ###
@@ -120,57 +136,117 @@ $splatProcess = @{
 $BodySlack = Get-SlackBody
 $BodyTeams = Get-TeamsBody
 
+# Initialize connector bodies
+$connectorBodies = @{}
+foreach ($connector in $connectorModules) {
+    $bodyFunction = "Get-${connector}Body"
+    if (Get-Command $bodyFunction -ErrorAction SilentlyContinue) {
+        $connectorBodies[$connector] = & $bodyFunction
+    }
+}
+
 # Generic function to update all enabled connectors with first scan message
-Function Update-ConnectorsFirstScan($slackBody, $teamsBody) {
-    $updatedSlack = $slackBody
-    $updatedTeams = $teamsBody
-    
-    if ($slack) {
-        $updatedSlack = Update-SlackFirstScanMessage -body $slackBody
+Function Update-ConnectorsFirstScan($connectorBodies) {
+    $updatedBodies = @{}
+    foreach ($connector in $connectorModules) {
+        $updatedBodies[$connector] = $connectorBodies[$connector]
+        
+        if ($enabledConnectors[$connector]) {
+            $updateFunction = "Update-${connector}FirstScanMessage"
+            if (Get-Command $updateFunction -ErrorAction SilentlyContinue) {
+                $updatedBodies[$connector] = & $updateFunction -body $connectorBodies[$connector]
+            }
+        }
     }
-    if ($teams) {
-        $updatedTeams = Update-TeamsFirstScanMessage -body $teamsBody
-    }
-    return @{ Slack = $updatedSlack; Teams = $updatedTeams }
+    return $updatedBodies
 }
 
 # Generic function to update all enabled connectors with status message
-Function Update-ConnectorsStatus($slackBody, $teamsBody, $message) {
-    $updatedSlack = $slackBody
-    $updatedTeams = $teamsBody
+Function Update-ConnectorsStatus($connectorBodies, $message) {
+    $updatedBodies = @{}
+    foreach ($connector in $connectorModules) {
+        $updatedBodies[$connector] = $connectorBodies[$connector]
+        
+        if ($enabledConnectors[$connector]) {
+            $updateFunction = "Update-${connector}StatusMessage"
+            if (Get-Command $updateFunction -ErrorAction SilentlyContinue) {
+                $updatedBodies[$connector] = & $updateFunction -body $connectorBodies[$connector] -message $message
+            }
+        }
+    }
+    return $updatedBodies
+}
+
+# Generic function to update connector body with scan data
+Function Update-ConnectorBodies($connectorBodies, $domainName, $dateScan, $total_point, $str_trusts, $str_staleObject, $str_privilegeAccount, $str_anomalies) {
+    $updatedBodies = @{}
+    foreach ($connector in $connectorModules) {
+        $updatedBodies[$connector] = $connectorBodies[$connector]
+        
+        $updateFunction = "Update-${connector}Body"
+        if (Get-Command $updateFunction -ErrorAction SilentlyContinue) {
+            $params = @{
+                body = $connectorBodies[$connector]
+                domainName = $domainName
+                dateScan = $dateScan
+            }
+            
+            # Add connector-specific parameters
+            if ($connector -eq "Slack") {
+                $params.total_point = $total_point
+            } else {
+                $params.str_total_point = Add_Color $total_point
+            }
+            
+            $params.str_trusts = $str_trusts
+            $params.str_staleObject = $str_staleObject
+            $params.str_privilegeAccount = $str_privilegeAccount
+            $params.str_anomalies = $str_anomalies
+            
+            $updatedBodies[$connector] = & $updateFunction @params
+        }
+    }
+    return $updatedBodies
+}
+
+# Generic function to send messages to all enabled connectors
+Function Send-ConnectorMessages($connectorBodies, $final_thread, $current_scan) {
+    $responses = @{}
     
-    if ($slack) {
-        $updatedSlack = Update-SlackStatusMessage -body $slackBody -message $message
+    foreach ($connector in $connectorModules) {
+        if ($enabledConnectors[$connector]) {
+            $sendFunction = "Send-${connector}Message"
+            if (Get-Command $sendFunction -ErrorAction SilentlyContinue) {
+                
+                # Handle special formatting for Teams
+                if ($connector -eq "Teams") {
+                    $formatFunction = "Format-${connector}Message"
+                    if (Get-Command $formatFunction -ErrorAction SilentlyContinue) {
+                        $formattedMessage = & $formatFunction -message $connectorBodies[$connector] -final_thread $final_thread -current_scan $current_scan -print_current_result $print_current_result
+                        $responses[$connector] = & $sendFunction -body $formattedMessage
+                    }
+                } else {
+                    $responses[$connector] = & $sendFunction -body $connectorBodies[$connector]
+                    
+                    # Handle thread messages for Slack
+                    if ($connector -eq "Slack" -and $responses[$connector]) {
+                        $threadFunction = "Send-${connector}Thread"
+                        if (Get-Command $threadFunction -ErrorAction SilentlyContinue) {
+                            if ($final_thread) {
+                                & $threadFunction -channel $responses[$connector].channel -thread_ts $responses[$connector].ts -text $final_thread
+                            }
+                            if ($print_current_result) {
+                                $current_scanformatted = "`n *Detected anomalies* `n" + $current_scan
+                                & $threadFunction -channel $responses[$connector].channel -thread_ts $responses[$connector].ts -text $current_scanformatted
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-    if ($teams) {
-        $updatedTeams = Update-TeamsStatusMessage -body $teamsBody -message $message
-    }
-    return @{ Slack = $updatedSlack; Teams = $updatedTeams }
-}
-
-# Function update slack color (deprecated - now handled by module)
-Function updateSlackColor($body, $point) {
-    return Update-SlackColor -body $body -point $point
-}
-
-# function send to webhook (updated to use modules)
-Function Send_WebHook($body, $connector) {
-    if ($connector -eq "slack") {
-        return Send-SlackMessage -body $body
-    }
-    if ($connector -eq "teams") {
-        return Send-TeamsMessage -body $body
-    }
-}
-
-# function update body (updated to use modules)
-Function Update_Body($body, $connector) {
-    if ($connector -eq "slack") {
-        return Update-SlackBody -body $body -domainName $domainName -dateScan $dateScan -total_point $total_point -str_trusts $str_trusts -str_staleObject $str_staleObject -str_privilegeAccount $str_privilegeAccount -str_anomalies $str_anomalies
-    }
-    if ($connector -eq "teams") {
-        return Update-TeamsBody -body $body -domainName $domainName -dateScan $dateScan -str_total_point $str_total_point -str_trusts $str_trusts -str_staleObject $str_staleObject -str_privilegeAccount $str_privilegeAccount -str_anomalies $str_anomalies
-    }
+    
+    return $responses
 }
 
 # function to deal with slack color
@@ -314,9 +390,14 @@ $str_trusts = Add_Color $Trusts
 $str_staleObject = Add_Color $StaleObjects
 $str_privilegeAccount = Add_Color $PrivilegedAccounts
 $str_anomalies = Add_Color $Anomalies
-$BodySlack = updateSlackColor $BodySlack $total_point
-$BodySlack = Update_Body $BodySlack "slack"
-$BodyTeams = Update_Body $BodyTeams "teams"
+
+# Update Slack color if enabled
+if ($enabledConnectors["Slack"]) {
+    $connectorBodies["Slack"] = Update-SlackColor -body $connectorBodies["Slack"] -point $total_point
+}
+
+# Update all connector bodies with scan data
+$connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies
 
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 $old_report.FullName
@@ -329,9 +410,7 @@ if (-not ($old_report.FullName)) {
     Write-Host "First time run"
     
     # Update all connectors with first scan message
-    $updatedBodies = Update-ConnectorsFirstScan $BodySlack $BodyTeams
-    $BodySlack = $updatedBodies.Slack
-    $BodyTeams = $updatedBodies.Teams
+    $connectorBodies = Update-ConnectorsFirstScan $connectorBodies
     
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
@@ -380,29 +459,27 @@ if (-not ($old_report.FullName)) {
     if ([int]$previous_score -eq [int]$total_point -and (IsEqual $StaleObjects_old $StaleObjects) -and (IsEqual $PrivilegedAccounts_old $PrivilegedAccounts) -and (IsEqual $Anomalies_old $Anomalies) -and (IsEqual $Trusts_old $Trusts)) {
         if ($addedVuln -or $removedVuln -or $warningVuln) {
             $sentNotification = $True
-            $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "There is no new vulnerability yet some rules have changed !"
+            $connectorBodies = Update-ConnectorsStatus $connectorBodies "There is no new vulnerability yet some rules have changed !"
         } else {
             $sentNotification = $False
-            $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "There is no new vulnerability ! :tada:"
+            $connectorBodies = Update-ConnectorsStatus $connectorBodies "There is no new vulnerability ! :tada:"
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
         Write-Host "rage"
         $sentNotification = $true
         $message = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
-        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams $message
+        $connectorBodies = Update-ConnectorsStatus $connectorBodies $message
     } elseIf  ([int]$previous_score -gt [int]$total_point) {
         Write-Host "no rage"
         $sentNotification = $true
         $message = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
-        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams $message
+        $connectorBodies = Update-ConnectorsStatus $connectorBodies $message
     } else {
         Write-Host "same global score but different score in categories"
         $sentNotification = $true
-        $updatedBodies = Update-ConnectorsStatus $BodySlack $BodyTeams "New rules flagged but also some fix, yet same score than previous scan"
+        $connectorBodies = Update-ConnectorsStatus $connectorBodies "New rules flagged but also some fix, yet same score than previous scan"
     }
     
-    $BodySlack = $updatedBodies.Slack
-    $BodyTeams = $updatedBodies.Teams
     $final_thread = $addedVuln + $removedVuln + $warningVuln
 }
 
@@ -419,29 +496,35 @@ if ($sentNotification -eq $false) {
 # Move report to logs directory
 try {
     Write-Information "Sending information by email, webhook, etc..."
-    if ($slack) {
-        $r = Send_WebHook $BodySlack "slack"
-        if ($final_thread) {
-            Send-SlackThread -channel $r.channel -thread_ts $r.ts -text $final_thread
-        }
-        if ($print_current_result) {
-            $current_scanslack = "`n *Detected anomalies* `n" + $current_scan
-            Send-SlackThread -channel $r.channel -thread_ts $r.ts -text $current_scanslack
-        }
-    } 
-    if ($teams) {
-        $formattedTeamsMessage = Format-TeamsMessage -message $BodyTeams -final_thread $final_thread -current_scan $current_scan -print_current_result $print_current_result
-        $r = Send_WebHook $formattedTeamsMessage "teams"
-    }
+    
+    # Send messages to all enabled connectors
+    $responses = Send-ConnectorMessages $connectorBodies $final_thread $current_scan
+    
     # write log report
     "Last scan " + $dateScan | out-file -append $logreport 
-    $log = $BodyTeams 
-    $log = $log + $final_thread
-    $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
-    $log = $log.Replace("{","").Replace("   text:'","").Replace("&#129395;","")
-    $log | out-file -append $logreport
-
-    $log
+    
+    # Use Teams body for logging if available, otherwise use first available connector
+    $logBody = $null
+    if ($connectorBodies["Teams"]) {
+        $logBody = $connectorBodies["Teams"]
+    } else {
+        # Get first available connector body for logging
+        foreach ($connector in $connectorModules) {
+            if ($connectorBodies[$connector]) {
+                $logBody = $connectorBodies[$connector]
+                break
+            }
+        }
+    }
+    
+    if ($logBody) {
+        $log = $logBody
+        $log = $log + $final_thread
+        $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
+        $log = $log.Replace("{","").Replace("   text:'","").Replace("&#129395;","")
+        $log | out-file -append $logreport
+        $log
+    }
 
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
     Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile

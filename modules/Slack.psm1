@@ -103,7 +103,6 @@ function Send-SlackMessage {
     
     try {
         $BodySlackJson = $body | ConvertTo-Json -Depth 5
-        Write-Host $BodySlackJson
         Write-Host "Sending to slack"
         $response = Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $script:headers -Body $BodySlackJson -Method Post -ContentType 'application/json'
         
