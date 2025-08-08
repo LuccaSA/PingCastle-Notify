@@ -15,15 +15,31 @@
     date: 22/02/2024
     version: 1.2
     change:
-        - update slack module to use new function
-        - update teams module to use new function
+        - update slack module to use new module
+        - update teams module to use new module
         - add .env file
+        - add discord module 
+        - refactoring to use new connector modules
     date: 08/08/2025
-    version: 1.3
+    version: 2.0
 #>
 
 $ErrorActionPreference = 'Stop'
-$InformationPreference = 'Continue'
+$InformationPreference = 'SilentlyContinue'
+
+# ASCII Art Banner
+Write-Host @"
+
+    ▄▖▘    ▄▖    ▗ ▜     ▖ ▖  ▗ ▘▐▘  
+    ▙▌▌▛▌▛▌▌ ▀▌▛▘▜▘▐ █▌  ▛▖▌▛▌▜▘▌▜▘▌▌
+    ▌ ▌▌▌▙▌▙▖█▌▄▌▐▖▐▖▙▖  ▌▝▌▙▌▐▖▌▐ ▙▌
+        ▄▌                        ▄▌
+      Automated Notification System    
+"@ -ForegroundColor Cyan
+Write-Host @"                               
+        v2.0 by @mpgn_x64 - Lucca
+
+"@ -ForegroundColor Magenta
 
 # Function to read .env file
 Function Read-EnvFile {
@@ -68,7 +84,7 @@ $enabledConnectors = @{}
 if (Test-Path $modulePath) {
     Get-ChildItem -Path $modulePath -Filter "*.psm1" | ForEach-Object {
         $moduleName = $_.BaseName
-        Write-Information "Loading module: $moduleName"
+        Write-Host "[+] Loading module: $moduleName"
         Import-Module $_.FullName -Force
         $connectorModules += $moduleName
         
@@ -218,13 +234,9 @@ Function Send-ConnectorMessages($connectorBodies, $final_thread, $current_scan) 
             $sendFunction = "Send-${connector}Message"
             if (Get-Command $sendFunction -ErrorAction SilentlyContinue) {
                 
-                # Handle special formatting for Teams
-                if ($connector -eq "Teams") {
-                    $formatFunction = "Format-${connector}Message"
-                    if (Get-Command $formatFunction -ErrorAction SilentlyContinue) {
-                        $formattedMessage = & $formatFunction -message $connectorBodies[$connector] -final_thread $final_thread -current_scan $current_scan -print_current_result $print_current_result
-                        $responses[$connector] = & $sendFunction -body $formattedMessage
-                    }
+                # Teams and Discord send everything in one message
+                if ($connector -ne "Slack") {
+                    $responses[$connector] = & $sendFunction -body $connectorBodies[$connector] -final_thread $final_thread -current_scan $current_scan -print_current_result $print_current_result
                 } else {
                     $responses[$connector] = & $sendFunction -body $connectorBodies[$connector]
                     
@@ -317,14 +329,14 @@ Function DiffReport($xml1,$xml2,$action) {
                     break
                 # else if warning and                       
                 } elseIf ($action -eq ":arrow_forward:" -and ($rule2.RiskId -eq $rule.RiskId) -and ($rule2.Rationale -ne $rule.Rationale)) {
-                    Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale $rule2.Rationale
+                    Write-Information ($action  + " *+" + $rule.Points + "* - " + $rule.Rationale + " " + $rule2.Rationale)
                     $found = 2
                     break   
                 }
             }
         }
         if ($found -eq 0 -and $rule.Rationale -and $action -ne ":arrow_forward:") {
-            Write-Host $action  + " *+" + $rule.Points + "* - " + $rule.Rationale  $rule2.RiskId $rule.RiskId
+            Write-Information ($action  + " *+" + $rule.Points + "* - " + $rule.Rationale + " " + $rule2.RiskId + " " + $rule.RiskId)
             If ($action -eq ":heavy_exclamation_mark:") {
                 $result = $result + $action  + " *+" + $rule.Points + "* - " + $rule.Rationale + "`n"
             } else {
@@ -355,7 +367,9 @@ if (-not (Test-Path $pingCastleReportLogs)) {
 # Try to start program and catch any error
 try {
     Set-Location -Path $PingCastle.ProgramPath
-    Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
+    Write-Host ""
+    Write-Host "[+] Running PingCastle scan"
+    #Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
 }
 Catch {
     Write-Error -Message ("Error for execute {0}" -f $pingCastleFullpath)
@@ -367,6 +381,8 @@ foreach ($pingCastleTestFile in ($pingCastleReportFullpath, $pingCastleReportXML
         Write-Error -Message ("Report file not found {0}" -f $pingCastleTestFile)
     }
 }
+
+Write-Host "[+] Analyzing report content"
 
 # Get content on XML file
 try {
@@ -400,14 +416,14 @@ if ($enabledConnectors["Slack"]) {
 $connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies
 
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
-$old_report.FullName
+Write-Information $old_report.FullName
 $current_scan = ""
 $final_thread = ""
 # Check if PingCastle previous score file exist
 if (-not ($old_report.FullName)) {
     # if don't exist, sent report
     $sentNotification = $true
-    Write-Host "First time run"
+    Write-Information "First time run"
     
     # Update all connectors with first scan message
     $connectorBodies = Update-ConnectorsFirstScan $connectorBodies
@@ -441,8 +457,8 @@ if (-not ($old_report.FullName)) {
         $Trusts_old = ExtractXML $contentOldPingCastleReportXML "Trusts" 
         $previous_score = CaclSumGroup $Trusts_old $StaleObjects_old $PrivilegedAccounts_old $Anomalies_old
 
-        Write-Host "Previous score " $previous_score
-        Write-Host "Current score " $total_point
+        Write-Information "Previous score $previous_score"
+        Write-Information "Current score $total_point"
     }
     catch {
         Write-Error -Message ("Unable to read the content of the xml file {0}" -f $old_report)
@@ -465,17 +481,17 @@ if (-not ($old_report.FullName)) {
             $connectorBodies = Update-ConnectorsStatus $connectorBodies "There is no new vulnerability ! :tada:"
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
-        Write-Host "rage"
+        Write-Information "rage"
         $sentNotification = $true
         $message = "New rules flagged *+" + [string]([int]$total_point-[int]$previous_score) + " points* :rage: "
         $connectorBodies = Update-ConnectorsStatus $connectorBodies $message
     } elseIf  ([int]$previous_score -gt [int]$total_point) {
-        Write-Host "no rage"
+        Write-Information "no rage"
         $sentNotification = $true
         $message = "Yeah, some improvement have been made *-" +  [string]([int]$previous_score-[int]$total_point) + " points* :smile: "
         $connectorBodies = Update-ConnectorsStatus $connectorBodies $message
     } else {
-        Write-Host "same global score but different score in categories"
+        Write-Information "same global score but different score in categories"
         $sentNotification = $true
         $connectorBodies = Update-ConnectorsStatus $connectorBodies "New rules flagged but also some fix, yet same score than previous scan"
     }
@@ -484,6 +500,9 @@ if (-not ($old_report.FullName)) {
 }
 
 $logreport = $PingCastle.ReportFolder + "\\scan.log"
+
+Write-Host "[+] Analyzing report done"
+Write-Host ""
 
 # If content is same, don't sent report
 if ($sentNotification -eq $false) {
@@ -523,14 +542,16 @@ try {
         $log = $log.Replace("*","").Replace(":large_green_circle:","").Replace(":large_orange_circle:","").Replace(":large_yellow_circle:","").Replace(":red_circle:","").Replace(":heavy_exclamation_mark:","!").Replace(":white_check_mark:","-").Replace(":arrow_forward:",">").Replace(":tada:","")
         $log = $log.Replace("{","").Replace("   text:'","").Replace("&#129395;","")
         $log | out-file -append $logreport
-        $log
+        Write-Host "[+] Log report written to $logreport" -ForegroundColor Blue
+        Write-Information "Log report information: "
+        Write-Information $log
     }
 
-    $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
-    Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
-    $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
-    Move-Item -Path $pingCastleReportXMLFullpath -Destination $pingCastleMoveFile
-    Remove-Item ("{0}.{1}" -f (Join-Path $PingCastle.ProgramPath $PingCastle.ReportFileName), '*')
+    # $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
+    # Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
+    # $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
+    # Move-Item -Path $pingCastleReportXMLFullpath -Destination $pingCastleMoveFile
+    # Remove-Item ("{0}.{1}" -f (Join-Path $PingCastle.ProgramPath $PingCastle.ReportFileName), '*')
 }
 catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)

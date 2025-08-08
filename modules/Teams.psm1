@@ -33,7 +33,10 @@ function Update-TeamsBody {
 
 function Send-TeamsMessage {
     param(
-        [string]$body
+        [string]$body,
+        [string]$final_thread = "",
+        [string]$current_scan = "",
+        [bool]$print_current_result = $true
     )
     
     if (-not $script:teamsEnabled) {
@@ -41,41 +44,38 @@ function Send-TeamsMessage {
     }
     
     try {
-        Write-Host "Sending to teams"
-        return Invoke-RestMethod -Method Post -ContentType 'application/Json' -Body $body -Uri $script:teamsUri
+        # Escape single quotes
+        $current_scan = $current_scan.replace("'", "\'")
+        $final_thread = $final_thread.replace("'", "\'")
+        
+        # Build final message
+        if ($print_current_result) {
+            $current_scan = "`n`---`n Detected anomalies: `n" + $current_scan
+            $finalMessage = $body + $final_thread + $current_scan + "'}"
+        } else {
+            $finalMessage = $body + $final_thread + "'}"
+        }
+        
+        # Convert markdown and emojis for Teams
+        $finalMessage = $finalMessage.Replace("*","**").Replace("`n","`n`n")
+        $finalMessage = $finalMessage.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
+        $finalMessage = $finalMessage.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
+        
+        Write-Host "[+] Sending to teams"
+        $response = Invoke-RestMethod -Method Post -ContentType 'application/Json' -Body $finalMessage -Uri $script:teamsUri
+        
+        if ($response -eq "1") {
+            Write-Host "[+] Teams message sent successfully" -ForegroundColor Green
+        } else {
+            Write-Error "Teams webhook returned unexpected response: $response"
+        }
+        
+        return $response
     }
     catch {
         Write-Error "Failed to send Teams message: $_"
         return $null
     }
-}
-
-function Format-TeamsMessage {
-    param(
-        [string]$message,
-        [string]$final_thread = "",
-        [string]$current_scan = "",
-        [bool]$print_current_result = $true
-    )
-    
-    # Escape single quotes
-    $current_scan = $current_scan.replace("'", "\'")
-    $final_thread = $final_thread.replace("'", "\'")
-    
-    # Build final message
-    if ($print_current_result) {
-        $current_scan = "`n`---`n Detected anomalies: `n" + $current_scan
-        $finalMessage = $message + $final_thread + $current_scan + "'}"
-    } else {
-        $finalMessage = $message + $final_thread + "'}"
-    }
-    
-    # Convert markdown and emojis for Teams
-    $finalMessage = $finalMessage.Replace("*","**").Replace("`n","`n`n")
-    $finalMessage = $finalMessage.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
-    $finalMessage = $finalMessage.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
-    
-    return $finalMessage
 }
 
 function Get-TeamsBody {
@@ -103,4 +103,4 @@ function Update-TeamsStatusMessage {
     return $body.Replace("add_new_vuln", $message + "`n`n")
 }
 
-Export-ModuleMember -Function Initialize-TeamsConfig, Update-TeamsBody, Send-TeamsMessage, Format-TeamsMessage, Get-TeamsBody, Get-TeamsEnabled, Update-TeamsFirstScanMessage, Update-TeamsStatusMessage
+Export-ModuleMember -Function Initialize-TeamsConfig, Update-TeamsBody, Send-TeamsMessage, Get-TeamsBody, Get-TeamsEnabled, Update-TeamsFirstScanMessage, Update-TeamsStatusMessage
