@@ -14,19 +14,73 @@
         - better slack integration with color
     date: 22/02/2024
     version: 1.2
+    change:
+        - update slack module to use new function
+        - update teams module to use new function
+        - add .env file
+    date: 08/08/2025
+    version: 1.3
 #>
-
-### EDIT THIS PARAMETERS ###
-$slackChannel = "#pingcastle-scan"
-$slackToken="xoxb-xxxxx-xxxxx-xxxxx-xxxxx"
-$slack = 1
-$teams = 0
-$teamsUri = "https://xxxxxxxxx.office.com/webhookb2/xxxxxxxxxxxxx/IncomingWebhook/xxxxxxxxx/xxxxxxxxx"
-$print_current_result = 1
-### END ###
 
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
+
+# Function to read .env file
+Function Read-EnvFile {
+    param(
+        [string]$Path = ".env"
+    )
+    
+    $envVars = @{}
+    
+    if (Test-Path $Path) {
+        Get-Content $Path | ForEach-Object {
+            $line = $_.Trim()
+            # Skip empty lines and comments
+            if ($line -and !$line.StartsWith("#")) {
+                if ($line -match "^([^=]+)=(.*)$") {
+                    $key = $matches[1].Trim()
+                    $value = $matches[2].Trim()
+                    # Remove quotes if present
+                    $value = $value -replace '^["'']|["'']$', ''
+                    $envVars[$key] = $value
+                }
+            }
+        }
+        Write-Information "Loaded configuration from $Path"
+    } else {
+        Write-Warning "Environment file $Path not found, using default values"
+    }
+    
+    return $envVars
+}
+
+# Import modules
+Import-Module (Join-Path $PSScriptRoot "modules\Slack.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot "modules\Teams.psm1") -Force
+
+# Load environment variables
+$envPath = Join-Path $PSScriptRoot ".env"
+$envVars = Read-EnvFile -Path $envPath
+
+### CONFIGURATION FROM .env FILE ###
+# Initialize modules with configuration
+Initialize-SlackConfig -envVars $envVars
+Initialize-TeamsConfig -envVars $envVars
+
+# Get configuration values for backward compatibility
+$slack = Get-SlackEnabled
+$teams = Get-TeamsEnabled
+$print_current_result = if ($envVars["PRINT_CURRENT_RESULT"]) { [int]$envVars["PRINT_CURRENT_RESULT"] } else { 1 }
+$domain = $envVars["DOMAIN"]
+### END CONFIGURATION ###
+
+# Handle Mac compatibility - USERDNSDOMAIN doesn't exist on Mac
+$domainSuffix = if ($domain) { 
+    $domain
+} else { 
+    ($env:USERDNSDOMAIN).ToLower() 
+}
 
 #region Variable
 $ApplicationName = 'PingCastle'
@@ -35,7 +89,7 @@ $PingCastle = [pscustomobject]@{
     ProgramPath     = Join-Path $PSScriptRoot $ApplicationName
     ProgramName     = '{0}.exe' -f $ApplicationName
     Arguments       = '--healthcheck --level Full'
-    ReportFileName  = 'ad_hc_{0}' -f ($env:USERDNSDOMAIN).ToLower()
+    ReportFileName  = 'ad_hc_{0}' -f $domainSuffix
     ReportFolder    = "Reports"
     ProgramUpdate   = '{0}AutoUpdater.exe' -f $ApplicationName
     ArgumentsUpdate = '--wait-for-days 30'
@@ -63,94 +117,32 @@ $splatProcess = @{
     Wait        = $true
 }
 
-$BodySlack = @{
-    channel = $slackChannel;
-    attachments = @(
-        @{
-            "mrkdwn_in" = @("text")
-            "color" = ""
-            "text" = ""
-            "fields" = @(
-                @{
-                    "value" = ""
-                    "short" = "True"
-                },
-                @{
-                    "value" = ""
-                    "short" = "True"
-                },
-                @{
-                    "value" = ""
-                    "short" = "True"
-                },
-                @{
-                    "value" = ""
-                    "short" = "True"
-                },
-                @{
-                    "value" = ""
-                    "short" = $False
-                }
-            )
-            "footer" = "<https://github.com/LuccaSA/PingCastle-Notify|Pingcastle-Notify> v1.2"
-            "footer_icon" = "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
-        }
-    );
-    icon_emoji = ":ghost:";
-    username = "PingCastle Automatic run";
-}
+$BodySlack = Get-SlackBody
+$BodyTeams = Get-TeamsBody
 
-$BodyTeams = @"
-{
-   text:'Domain *domain_env* - date_scan - *Global Score abc* : 
-- Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
-- add_new_vuln
-"@
-
-# Function update slack color
+# Function update slack color (deprecated - now handled by module)
 Function updateSlackColor($body, $point) {
-        if ($point -ge 75) {
-        $body['attachments'][0]['color'] = "#f12828"
-    } elseIf ($point -ge 50 -and $point -lt 75) {
-        $body['attachments'][0]['color'] = "#ff6a00"
-    } elseIf ($point -ge 25 -and $point -lt 50) {
-        $body['attachments'][0]['color'] = "#ffd800"
-    } elseIf ($point -ge 0 -and $point -lt 25) {
-        $body['attachments'][0]['color'] = "#83e043"
-    } else {
-        $body['attachments'][0]['color'] = "#83e043"
-    }
-        return $body
+    return Update-SlackColor -body $body -point $point
 }
 
-# function send to slack
+# function send to webhook (updated to use modules)
 Function Send_WebHook($body, $connector) {
-    if ($slack -and $connector -eq "slack") {
-        $BodySlackJson = $body | ConvertTo-Json -Depth 5
-        Write-Host $BodySlackJson
-        Write-Host "Sending to slack"
-        return Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $headers -Body $BodySlackJson -Method Post -ContentType 'application/json'
+    if ($connector -eq "slack") {
+        return Send-SlackMessage -body $body
     }
-    if ($teams -and $connector -eq "teams") {
-        Write-Host "Sending to teams"
-        return Invoke-RestMethod -Method post -ContentType 'application/Json' -Body $body -Uri $teamsUri
+    if ($connector -eq "teams") {
+        return Send-TeamsMessage -body $body
     }
 }
 
-# function update body
+# function update body (updated to use modules)
 Function Update_Body($body, $connector) {
-        if ($connector -eq "slack") {
-            $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *Global Score " + [string]$total_point + "* : "
-            $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
-            $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
-            $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
-            $body['attachments'][0]['fields'][3]['value'] = $str_anomalies.Split(" ")[1].Trim() + " Anomalies: " + $str_anomalies.Split(" ")[0].Trim()
-
-            return $body
-        }
-        if ($connector -eq "teams") {
-            return $body.Replace("abc",$str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
-        }
+    if ($connector -eq "slack") {
+        return Update-SlackBody -body $body -domainName $domainName -dateScan $dateScan -total_point $total_point -str_trusts $str_trusts -str_staleObject $str_staleObject -str_privilegeAccount $str_privilegeAccount -str_anomalies $str_anomalies
+    }
+    if ($connector -eq "teams") {
+        return Update-TeamsBody -body $body -domainName $domainName -dateScan $dateScan -str_total_point $str_total_point -str_trusts $str_trusts -str_staleObject $str_staleObject -str_privilegeAccount $str_privilegeAccount -str_anomalies $str_anomalies
+    }
 }
 
 # function to deal with slack color
@@ -307,7 +299,7 @@ if (-not ($old_report.FullName)) {
     # if don't exist, sent report
     $sentNotification = $true
     Write-Host "First time run"
-        $BodySlack['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
+    $BodySlack['attachments'][0]['fields'][4]['value'] = "First PingCastle scan ! :tada:"
     $BodyTeams = $BodyTeams.Replace("add_new_vuln", "First PingCastle scan ! &#129395; `n`n ")
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
@@ -328,7 +320,7 @@ if (-not ($old_report.FullName)) {
             $current_scan = $current_scan + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
         }
     }
-    $current_scan = "`n`---`n" + $current_scan
+
     # Get content of previous PingCastle score
     try {
         $pingCastleOldReportXMLFullpath = $old_report.FullName
@@ -400,39 +392,16 @@ try {
     if ($slack) {
         $r = Send_WebHook $BodySlack "slack"
         if ($final_thread) {
-            $BodySlack2 = @{
-                channel = $r.channel;
-                thread_ts = $r.ts
-                text = $final_thread;
-                icon_emoji = ":ghost:"
-                username = "PingCastle Automatic run"
-            }
-            Send_WebHook $BodySlack2 "slack"
+            Send-SlackThread -channel $r.channel -thread_ts $r.ts -text $final_thread
         }
         if ($print_current_result) {
-            $BodySlack3 = @{
-                channel = $r.channel;
-                thread_ts = $r.ts
-                text = $current_scan;
-                icon_emoji = ":ghost:"
-                username = "PingCastle Automatic run"
-            }
-            Send_WebHook $BodySlack3 "slack"
+            $current_scanslack = "`n *Detected anomalies* `n" + $current_scan
+            Send-SlackThread -channel $r.channel -thread_ts $r.ts -text $current_scanslack
         }
     } 
     if ($teams) {
-        $current_scan = $current_scan.replace("'", "\'")
-        $final_thread = $final_thread.replace("'", "\'")
-        if ($print_current_result) {
-            $BodyTeams = $BodyTeams + $final_thread + $current_scan + "'}"
-        }
-        else {
-            $BodyTeams = $BodyTeams + $final_thread + "'}"
-        }
-        $BodyTeams = $BodyTeams.Replace("*","**").Replace("`n","`n`n")
-        $BodyTeams = $BodyTeams.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
-        $BodyTeams = $BodyTeams.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
-        $r = Send_WebHook $BodyTeams "teams"
+        $formattedTeamsMessage = Format-TeamsMessage -message $BodyTeams -final_thread $final_thread -current_scan $current_scan -print_current_result $print_current_result
+        $r = Send_WebHook $formattedTeamsMessage "teams"
     }
     # write log report
     "Last scan " + $dateScan | out-file -append $logreport 
