@@ -564,12 +564,17 @@ catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)
 }
 
-# Try to start update program and catch any error
-try {
-    Write-Information "Trying to update"
-    Start-Process -FilePath $pingCastleUpdateFullpath -ArgumentList $PingCastle.ArgumentsUpdate @splatProcess
-    Write-Information "Update completed"
+if (-not $noscan) {
+    # Try to start update program and catch any error
+    try {
+        Write-Information "Trying to update"
+        Start-Process -FilePath $pingCastleUpdateFullpath -ArgumentList $PingCastle.ArgumentsUpdate @splatProcess
+        Write-Information "Update completed"
+    }
+    Catch {
+        Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
+    }
+} else {
+    Write-Host "[+] Skipping PingCastle update (noscan mode)" -ForegroundColor Yellow
 }
-Catch {
-    Write-Error -Message ("Error for execute update program {0}" -f $pingCastleUpdateFullpath)
-}
+
