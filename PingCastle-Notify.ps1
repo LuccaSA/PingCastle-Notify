@@ -20,9 +20,14 @@
         - add .env file
         - add discord module 
         - refactoring to use new connector modules
+        - add -noscan option to skip PingCastle scan
     date: 08/08/2025
     version: 2.0
 #>
+
+param(
+    [switch]$noscan
+)
 
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'SilentlyContinue'
@@ -349,11 +354,6 @@ Function DiffReport($xml1,$xml2,$action) {
     return $result   
 }
 
-# Check if program exist
-if (-not(Test-Path $pingCastleFullpath)) {
-    Write-Error -Message ("Path not found {0}" -f $pingCastleFullpath)
-}
-
 # Check if log directory exist. If not, create it
 if (-not (Test-Path $pingCastleReportLogs)) {
     try {
@@ -364,15 +364,22 @@ if (-not (Test-Path $pingCastleReportLogs)) {
     }
 }
 
-# Try to start program and catch any error
-try {
-    Set-Location -Path $PingCastle.ProgramPath
-    Write-Host ""
-    Write-Host "[+] Running PingCastle scan"
-    Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
-}
-Catch {
-    Write-Error -Message ("Error for execute {0}" -f $pingCastleFullpath)
+Set-Location -Path $PingCastle.ProgramPath
+Write-Host ""
+if (-not $noscan) {
+    # Check if program exist
+    if (-not(Test-Path $pingCastleFullpath)) {
+        Write-Error -Message ("Path not found {0}" -f $pingCastleFullpath)
+    }
+    try {
+        Write-Host "[+] Running PingCastle scan"
+        Start-Process -FilePath $pingCastleFullpath -ArgumentList $PingCastle.Arguments @splatProcess
+    }
+    Catch {
+        Write-Error -Message ("Error for execute {0}" -f $pingCastleFullpath)
+    }
+} else {
+    Write-Host "[+] Skipping PingCastle scan (noscan mode)" -ForegroundColor Yellow
 }
 
 # Check if report exist after execution
