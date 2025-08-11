@@ -134,6 +134,58 @@ DOMAIN=your-domain.local
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
 - `DOMAIN`: Your domain name (optional, will use `$env:USERDNSDOMAIN` if not set)
 
+#### Create a BOT
+
+<details>
+<summary>:arrow_forward: <b>Slack BOT</b></summary>
+
+1. In Slack create an application https://api.slack.com/apps
+2. Add the following rights
+   - Click on "Add features and functionality" -> Bots (configure the name)
+   - Click on "Add features and functionality" -> Permissions (add the following permissions)
+   - Generate a "Bot User OAuth Token" on the Permissions tab
+   
+![image](https://user-images.githubusercontent.com/5891788/191264679-7942173b-bb1f-4dd1-a936-4e97acdb1b5e.png)
+
+3. Get your token and add it to the `.env` file as `SLACK_TOKEN`
+4. Create a slack channel and add your bot user to the channel
+5. You can test your bot using https://api.slack.com/methods/chat.postMessage/test
+6. Add the channel to the `.env` file as `SLACK_CHANNEL`
+7. Set `SLACK_ENABLED=1` in your `.env` file
+8. Run the script to test using this command: 
+   `powershell.exe -exec bypass C:\YOUR_PATH\SECU-TOOL-SCAN\PingCastle-Notify.ps1`
+</details>
+<details>
+<summary>:arrow_forward: <b>Teams BOT</b></summary>
+
+1. Create a channel **pingcastle-scan**
+2. Click on the "..." dots and select "Connectors"
+3. Search for **Webhook**
+4. Add the webhook
+5. Re-click on the connectors button and on the webhook click **"configure"**
+6. Add a title and a logo and click **Create**, copy the webhook URL
+7. Update the `.env` file:
+   - Set `TEAMS_ENABLED=1`
+   - Set `TEAMS_URI` to your webhook URL
+</details>
+<details>
+<summary>:arrow_forward: <b>Teams WorkFlow (prefered for Teams)</b></summary>
+
+1.  **Start a new workflow:** In Microsoft Teams, navigate to your desired channel, click the three dots (`...`), and select **Workflows**. Then, click **Create a workflow**.
+2.  **Set the trigger:** Search for and select the trigger **"When a Teams webhook request is received."** This action provides a unique URL that will listen for incoming POST requests.
+3.  **Add a new action:** Click on **New step**.
+4.  **Configure the action:** Search for and select the action **"Post message in a chat or channel."**
+    * For **Post as**, choose `Flow bot` to ensure the message comes from the workflow itself.
+    * Select the **Team** and **Channel** where the message should be posted.
+5.  **Define the message content:** In the `Message` field, click on the **Expression** tab. Enter the following expression:
+    `triggerBody()?['pingcastle']`
+    This expression tells the workflow to look for a key named `pingcastle` within the JSON payload of the incoming webhook request and use its value as the message content.
+6.  **Save and get the URL:** Save the workflow. Once saved, expand the trigger step **"When a Teams webhook request is received."** The unique **HTTP POST URL** will be displayed there.
+You can now use this URL to send a message to the Teams channel. Any POST request to this URL with a JSON body containing a key named `pingcastle` will have the corresponding value posted as a message.
+7. Update the `.env` file
+</details>
+
+
 ## Usage
 
 ### Basic Usage
@@ -172,43 +224,10 @@ Or combine with noscan mode:
 .\PingCastle-Notify.ps1 -noscan -InformationAction Continue
 ```
 
-#### Create a BOT
-
-<details>
-<summary>:arrow_forward: <b>Slack BOT</b></summary>
-
-1. In Slack create an application https://api.slack.com/apps
-2. Add the following rights
-   - Click on "Add features and functionality" -> Bots (configure the name)
-   - Click on "Add features and functionality" -> Permissions (add the following permissions)
-   - Generate a "Bot User OAuth Token" on the Permissions tab
-   
-![image](https://user-images.githubusercontent.com/5891788/191264679-7942173b-bb1f-4dd1-a936-4e97acdb1b5e.png)
-
-3. Get your token and add it to the `.env` file as `SLACK_TOKEN`
-4. Create a slack channel and add your bot user to the channel
-5. You can test your bot using https://api.slack.com/methods/chat.postMessage/test
-6. Add the channel to the `.env` file as `SLACK_CHANNEL`
-7. Set `SLACK_ENABLED=1` in your `.env` file
-8. Run the script to test using this command: 
-   `powershell.exe -exec bypass C:\YOUR_PATH\SECU-TOOL-SCAN\PingCastle-Notify.ps1`
-</details>
-<details>
-<summary>:arrow_forward: <b>Teams BOT</b></summary>
-
-1. Create a channel **pingcastle-scan**
-2. Click on the "..." dots and select "Connectors"
-3. Search for **Webhook**
-4. Add the webhook
-5. Re-click on the connectors button and on the webhook click **"configure"**
-6. Add a title and a logo and click **Create**, copy the webhook URL
-7. Update the `.env` file:
-   - Set `TEAMS_ENABLED=1`
-   - Set `TEAMS_URI` to your webhook URL
-</details>
-
 #### Deploy a Scheduled Task
 
+<details>
+<summary>:arrow_forward: Make sure the scan is automatic and run every day</summary>
 On your Windows Server go to
 
 1. Create a service account that will run the PS1 script every night (no need to set the service account as domain admin)
@@ -228,6 +247,7 @@ On your Windows Server go to
 <img src="https://user-images.githubusercontent.com/5891788/191264565-a5fe4a3c-b14d-4e5a-b6c0-efe741d4591d.png">
 <img src="https://user-images.githubusercontent.com/5891788/191264503-cb3155a9-f2b3-4fed-b6de-eaf35b47a545.png">
 </p>
+</details>
 
 ## Adding a New Connector
 
