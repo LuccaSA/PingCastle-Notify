@@ -134,44 +134,6 @@ DOMAIN=your-domain.local
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
 - `DOMAIN`: Your domain name (optional, will use `$env:USERDNSDOMAIN` if not set)
 
-## Usage
-
-### Basic Usage
-
-Run the script to perform a PingCastle scan and send notifications:
-
-```powershell
-.\PingCastle-Notify.ps1
-```
-
-### Advanced Usage
-
-#### No-Scan Mode
-
-Skip the PingCastle scan and only process existing reports:
-
-```powershell
-.\PingCastle-Notify.ps1 -noscan
-```
-
-This mode is useful for generating the diff without running PingCastle.exe in case you already send all the report into a custom share.
-
-**Note:** The `-noscan` mode requires existing PingCastle reports to be present in the expected location.
-
-#### Verbose Output
-
-Enable detailed information output for debugging:
-
-```powershell
-.\PingCastle-Notify.ps1 -InformationAction Continue
-```
-
-Or combine with noscan mode:
-
-```powershell
-.\PingCastle-Notify.ps1 -noscan -InformationAction Continue
-```
-
 #### Create a BOT
 
 <details>
@@ -222,6 +184,45 @@ Or combine with noscan mode:
 You can now use this URL to send a message to the Teams channel. Any POST request to this URL with a JSON body containing a key named `pingcastle` will have the corresponding value posted as a message.
 7. Update the `.env` file
 </details>
+
+
+## Usage
+
+### Basic Usage
+
+Run the script to perform a PingCastle scan and send notifications:
+
+```powershell
+.\PingCastle-Notify.ps1
+```
+
+### Advanced Usage
+
+#### No-Scan Mode
+
+Skip the PingCastle scan and only process existing reports:
+
+```powershell
+.\PingCastle-Notify.ps1 -noscan
+```
+
+This mode is useful for generating the diff without running PingCastle.exe in case you already send all the report into a custom share.
+
+**Note:** The `-noscan` mode requires existing PingCastle reports to be present in the expected location.
+
+#### Verbose Output
+
+Enable detailed information output for debugging:
+
+```powershell
+.\PingCastle-Notify.ps1 -InformationAction Continue
+```
+
+Or combine with noscan mode:
+
+```powershell
+.\PingCastle-Notify.ps1 -noscan -InformationAction Continue
+```
 
 #### Deploy a Scheduled Task
 
