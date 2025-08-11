@@ -26,11 +26,68 @@
 #>
 
 param(
-    [switch]$noscan
+    [switch]$noscan,
+    [switch]$version,
+    [switch]$help
 )
 
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'SilentlyContinue'
+
+# Version information
+$scriptVersion = "2.0"
+$scriptAuthor = "@mpgn_x64"
+$scriptDate = "08/08/2025"
+
+# Handle help parameter
+if ($help) {
+    Write-Host @"
+PingCastle Notify v$scriptVersion - Help
+
+SYNOPSIS
+    Automated notification system for PingCastle security reports.
+
+SYNTAX
+    .\PingCastle-Notify.ps1 [parameters]
+
+PARAMETERS
+    -noscan
+        Skip the PingCastle scan and only process existing reports.
+        Useful for testing notifications or processing pre-generated reports.
+
+    -version
+        Display version information and exit.
+
+    -help
+        Display this help message and exit.
+
+    -InformationAction Continue
+        Enable verbose output for debugging purposes.
+
+CONFIGURATION
+    Configure notification settings in the .env file.
+    Supported platforms: Slack, Microsoft Teams, Discord
+
+For more information, visit: https://github.com/mpgn/PingCastle-Notify
+"@ -ForegroundColor Green
+    exit 0
+}
+
+# Handle version parameter
+if ($version) {
+    Write-Host @"
+PingCastle Notify v$scriptVersion
+Author: Martial Puygrenier ($scriptAuthor)
+Release Date: $scriptDate
+License: MIT
+
+A PowerShell notification system for PingCastle security reports.
+Supports Slack, Microsoft Teams, and Discord notifications.
+
+For more information, visit: https://github.com/mpgn/PingCastle-Notify
+"@ -ForegroundColor Cyan
+    exit 0
+}
 
 # ASCII Art Banner
 Write-Host @"
@@ -42,7 +99,7 @@ Write-Host @"
       Automated Notification System    
 "@ -ForegroundColor Cyan
 Write-Host @"                               
-        v2.0 by @mpgn_x64 - Lucca
+        v$scriptVersion by $scriptAuthor - Lucca
 
 "@ -ForegroundColor Magenta
 
@@ -554,11 +611,17 @@ try {
         Write-Information $log
     }
 
+    Write-Host "[+] Moving report files to logs directory" -ForegroundColor Green
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDate)
     Move-Item -Path $pingCastleReportFullpath -Destination $pingCastleMoveFile
+    Write-Host "    Moved HTML report to: $pingCastleMoveFile" -ForegroundColor Gray
+    
     $pingCastleMoveFile = (Join-Path $pingCastleReportLogs $pingCastleReportFileNameDateXML)
     Move-Item -Path $pingCastleReportXMLFullpath -Destination $pingCastleMoveFile
+    Write-Host "    Moved XML report to: $pingCastleMoveFile" -ForegroundColor Gray
+    
     Remove-Item ("{0}.{1}" -f (Join-Path $PingCastle.ProgramPath $PingCastle.ReportFileName), '*')
+    Write-Host "[+] Cleaned up temporary report files" -ForegroundColor Green
 }
 catch {
     Write-Error -Message ("Error for move report file to logs directory {0}" -f $pingCastleReportFullpath)
@@ -567,8 +630,10 @@ catch {
 if (-not $noscan) {
     # Try to start update program and catch any error
     try {
+        Write-Host "[+] Checking for PingCastle updates" -ForegroundColor Yellow
         Write-Information "Trying to update"
         Start-Process -FilePath $pingCastleUpdateFullpath -ArgumentList $PingCastle.ArgumentsUpdate @splatProcess
+        Write-Host "[+] PingCastle update completed" -ForegroundColor Green
         Write-Information "Update completed"
     }
     Catch {
@@ -577,4 +642,7 @@ if (-not $noscan) {
 } else {
     Write-Host "[+] Skipping PingCastle update (noscan mode)" -ForegroundColor Yellow
 }
+
+Write-Host ""
+Write-Host "[+] PingCastle Notify execution completed successfully" -ForegroundColor Green
 
