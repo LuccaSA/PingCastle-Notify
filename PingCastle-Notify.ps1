@@ -21,6 +21,7 @@
         - add discord module 
         - refactoring to use new connector modules
         - add -noscan option to skip PingCastle scan
+        - add -full_report option to force full report
     date: 08/08/2025
     version: 2.0
 #>
@@ -28,7 +29,8 @@
 param(
     [switch]$noscan,
     [switch]$version,
-    [switch]$help
+    [switch]$help,
+    [switch]$full_report
 )
 
 $ErrorActionPreference = 'Stop'
@@ -54,6 +56,10 @@ PARAMETERS
     -noscan
         Skip the PingCastle scan and only process existing reports.
         Useful for testing notifications or processing pre-generated reports.
+
+    -full-report
+        Force inclusion of all detected anomalies in notifications.
+        Overrides PRINT_CURRENT_RESULT setting in .env file.
 
     -version
         Display version information and exit.
@@ -165,7 +171,13 @@ if (Test-Path $modulePath) {
 }
 
 # Get configuration values for backward compatibility
-$print_current_result = if ($envVars["PRINT_CURRENT_RESULT"]) { [int]$envVars["PRINT_CURRENT_RESULT"] } else { 1 }
+$print_current_result = if ($full_report) { 
+    1 
+} elseif ($envVars["PRINT_CURRENT_RESULT"]) { 
+    [int]$envVars["PRINT_CURRENT_RESULT"] 
+} else { 
+    0 
+}
 $domain = $envVars["DOMAIN"]
 ### END CONFIGURATION ###
 
