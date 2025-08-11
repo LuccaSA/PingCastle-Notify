@@ -134,6 +134,44 @@ DOMAIN=your-domain.local
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
 - `DOMAIN`: Your domain name (optional, will use `$env:USERDNSDOMAIN` if not set)
 
+## Usage
+
+### Basic Usage
+
+Run the script to perform a PingCastle scan and send notifications:
+
+```powershell
+.\PingCastle-Notify.ps1
+```
+
+### Advanced Usage
+
+#### No-Scan Mode
+
+Skip the PingCastle scan and only process existing reports:
+
+```powershell
+.\PingCastle-Notify.ps1 -noscan
+```
+
+This mode is useful for generating the diff without running PingCastle.exe in case you already send all the report into a custom share.
+
+**Note:** The `-noscan` mode requires existing PingCastle reports to be present in the expected location.
+
+#### Verbose Output
+
+Enable detailed information output for debugging:
+
+```powershell
+.\PingCastle-Notify.ps1 -InformationAction Continue
+```
+
+Or combine with noscan mode:
+
+```powershell
+.\PingCastle-Notify.ps1 -noscan -InformationAction Continue
+```
+
 #### Create a BOT
 
 <details>
@@ -190,52 +228,6 @@ On your Windows Server go to
 <img src="https://user-images.githubusercontent.com/5891788/191264565-a5fe4a3c-b14d-4e5a-b6c0-efe741d4591d.png">
 <img src="https://user-images.githubusercontent.com/5891788/191264503-cb3155a9-f2b3-4fed-b6de-eaf35b47a545.png">
 </p>
-
-## Usage
-
-### Basic Usage
-
-Run the script to perform a PingCastle scan and send notifications:
-
-```powershell
-.\PingCastle-Notify.ps1
-```
-
-### Advanced Usage
-
-#### No-Scan Mode
-
-Skip the PingCastle scan and only process existing reports:
-
-```powershell
-.\PingCastle-Notify.ps1 -noscan
-```
-
-This mode is useful for generating the diff without running PingCastle.exe in case you already send all the report into a custom share.
-
-**Note:** The `-noscan` mode requires existing PingCastle reports to be present in the expected location.
-
-#### Verbose Output
-
-Enable detailed information output for debugging:
-
-```powershell
-.\PingCastle-Notify.ps1 -InformationAction Continue
-```
-
-Or combine with noscan mode:
-
-```powershell
-.\PingCastle-Notify.ps1 -noscan -InformationAction Continue
-```
-
-## Configuration
-
-The script uses a `.env` file for configuration. Copy the example file and customize:
-
-```bash
-cp .env.example .env
-```
 
 ## Adding a New Connector
 
