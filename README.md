@@ -225,6 +225,8 @@ You can now use this URL to send a message to the Teams channel. Any POST reques
 
 #### Deploy a Scheduled Task
 
+<details>
+<summary>Make sure the scan is automatic and run every day</summary>
 On your Windows Server go to
 
 1. Create a service account that will run the PS1 script every night (no need to set the service account as domain admin)
@@ -244,6 +246,7 @@ On your Windows Server go to
 <img src="https://user-images.githubusercontent.com/5891788/191264565-a5fe4a3c-b14d-4e5a-b6c0-efe741d4591d.png">
 <img src="https://user-images.githubusercontent.com/5891788/191264503-cb3155a9-f2b3-4fed-b6de-eaf35b47a545.png">
 </p>
+</details>
 
 ## Adding a New Connector
 
