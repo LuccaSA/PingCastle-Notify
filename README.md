@@ -226,7 +226,7 @@ You can now use this URL to send a message to the Teams channel. Any POST reques
 #### Deploy a Scheduled Task
 
 <details>
-<summary>Make sure the scan is automatic and run every day</summary>
+<summary>:arrow_forward: Make sure the scan is automatic and run every day</summary>
 On your Windows Server go to
 
 1. Create a service account that will run the PS1 script every night (no need to set the service account as domain admin)
