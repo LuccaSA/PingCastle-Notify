@@ -206,6 +206,22 @@ Or combine with noscan mode:
    - Set `TEAMS_ENABLED=1`
    - Set `TEAMS_URI` to your webhook URL
 </details>
+<details>
+<summary>:arrow_forward: <b>Teams WorkFlow (prefered for Teams)</b></summary>
+
+1.  **Start a new workflow:** In Microsoft Teams, navigate to your desired channel, click the three dots (`...`), and select **Workflows**. Then, click **Create a workflow**.
+2.  **Set the trigger:** Search for and select the trigger **"When a Teams webhook request is received."** This action provides a unique URL that will listen for incoming POST requests.
+3.  **Add a new action:** Click on **New step**.
+4.  **Configure the action:** Search for and select the action **"Post message in a chat or channel."**
+    * For **Post as**, choose `Flow bot` to ensure the message comes from the workflow itself.
+    * Select the **Team** and **Channel** where the message should be posted.
+5.  **Define the message content:** In the `Message` field, click on the **Expression** tab. Enter the following expression:
+    `triggerBody()?['pingcastle']`
+    This expression tells the workflow to look for a key named `pingcastle` within the JSON payload of the incoming webhook request and use its value as the message content.
+6.  **Save and get the URL:** Save the workflow. Once saved, expand the trigger step **"When a Teams webhook request is received."** The unique **HTTP POST URL** will be displayed there.
+You can now use this URL to send a message to the Teams channel. Any POST request to this URL with a JSON body containing a key named `pingcastle` will have the corresponding value posted as a message.
+7. Update the `.env` file
+</details>
 
 #### Deploy a Scheduled Task
 
