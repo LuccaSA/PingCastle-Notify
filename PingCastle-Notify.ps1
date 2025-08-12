@@ -22,6 +22,7 @@
         - refactoring to use new connector modules
         - add -noscan option to skip PingCastle scan
         - add -full_report option to force full report
+        - add anssi rules link
     date: 08/08/2025
     version: 2.0
 #>
