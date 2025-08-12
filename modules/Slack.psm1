@@ -80,16 +80,32 @@ function Update-SlackBody {
         [string]$str_trusts,
         [string]$str_staleObject,
         [string]$str_privilegeAccount,
-        [string]$str_anomalies
+        [string]$str_anomalies,
+        [string]$anssiMaturityText = ""
     )
     
-    $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *Global Score " + [string]$total_point + "* : "
+    $body['attachments'][0]['text'] = "Domain *" + $domainName + "* - " + $dateScan.ToString("dd/MM/yyyy") + " - *Global Score " + [string]$total_point + $anssiMaturityText + "* : "
     $body['attachments'][0]['fields'][0]['value'] = $str_trusts.Split(" ")[1].Trim() + " Trusts: " + $str_trusts.Split(" ")[0].Trim()
     $body['attachments'][0]['fields'][1]['value'] = $str_staleObject.Split(" ")[1].Trim() + " Stale Object: " + $str_staleObject.Split(" ")[0].Trim()
     $body['attachments'][0]['fields'][2]['value'] = $str_privilegeAccount.Split(" ")[1].Trim() + " Privileged Group: " + $str_privilegeAccount.Split(" ")[0].Trim()
     $body['attachments'][0]['fields'][3]['value'] = $str_anomalies.Split(" ")[1].Trim() + " Anomalies: " + $str_anomalies.Split(" ")[0].Trim()
     
     return $body
+}
+
+function Convert-MarkdownToSlackLink {
+  param (
+    [Parameter(Mandatory = $true)]
+    [string]$MarkdownText
+  )
+
+  # Use a regular expression to find Markdown links, e.g., [Text](URL)
+  $pattern = "\[(.*?)\]\((.*?)\)"
+
+  # Replace found Markdown links with Slack's link format, e.g., <URL|Text>
+  $SlackText = [System.Text.RegularExpressions.Regex]::Replace($MarkdownText, $pattern, "<`$2|`$1>")
+
+  return $SlackText
 }
 
 function Send-SlackMessage {
@@ -103,6 +119,7 @@ function Send-SlackMessage {
     
     try {
         $BodySlackJson = $body | ConvertTo-Json -Depth 5
+        $BodySlackJson = Convert-MarkdownToSlackLink -MarkdownText $BodySlackJson
         Write-Host "[+] Sending to slack"
         $response = Invoke-RestMethod -Uri https://slack.com/api/chat.postMessage -Headers $script:headers -Body $BodySlackJson -Method Post -ContentType 'application/json'
         

@@ -178,15 +178,11 @@ $print_current_result = if ($full_report) {
 } else { 
     0 
 }
-$domain = $envVars["DOMAIN"]
-### END CONFIGURATION ###
-
 # Handle Mac compatibility - USERDNSDOMAIN doesn't exist on Mac
-$domainSuffix = if ($domain) { 
-    $domain
-} else { 
+$domainSuffix = if ($envVars["DOMAIN"] ) { $envVars["DOMAIN"] } else { 
     ($env:USERDNSDOMAIN).ToLower() 
 }
+$anssi_lvl_enabled = if ($envVars["ANSSI_LVL"]) { [int]$envVars["ANSSI_LVL"] } else { 0 }
 
 #region Variable
 $ApplicationName = 'PingCastle'
@@ -267,8 +263,58 @@ Function Update-ConnectorsStatus($connectorBodies, $message) {
     return $updatedBodies
 }
 
+# Function to get ANSSI level for a rule
+Function Get-ANSSILevel($riskId) {
+    if ($script:ANSSIMapping.ContainsKey($riskId)) {
+        return $script:ANSSIMapping[$riskId].Level
+    }
+    return $null
+}
+
+# Function to get ANSSI URL for a rule
+Function Get-ANSSIURL($riskId) {
+    if ($script:ANSSIMapping.ContainsKey($riskId)) {
+        return $script:ANSSIMapping[$riskId].URL
+    }
+    return $null
+}
+
+# Function to format rule with ANSSI level and URL
+Function Format-RuleWithANSSILevel($rule) {
+    $anssiLevel = Get-ANSSILevel $rule.RiskId
+    $anssiURL = Get-ANSSIURL $rule.RiskId
+    
+    if ($anssiLevel -and $anssiURL) {
+        return "$($rule.Rationale) ([ANSSI L$anssiLevel]($anssiURL))"
+    } elseif ($anssiLevel) {
+        return "$($rule.Rationale) ([ANSSI L$anssiLevel)($anssiURL))"
+    }
+    return $rule.Rationale
+}
+
+# Function to calculate ANSSI maturity level (lowest level found)
+Function Get-ANSSIMaturityLevel($rules) {
+    $lowestLevel = 5  # Start with highest possible level
+    
+    foreach ($rule in $rules) {
+        if ($rule.RiskId) {
+            $level = Get-ANSSILevel $rule.RiskId
+            if ($level -and $level -lt $lowestLevel) {
+                $lowestLevel = $level
+            }
+        }
+    }
+    
+    # If no ANSSI rules found or lowest level is 4 or higher, return level 5
+    if ($lowestLevel -ge 4) {
+        return 5
+    } else {
+        return $lowestLevel
+    }
+}
+
 # Generic function to update connector body with scan data
-Function Update-ConnectorBodies($connectorBodies, $domainName, $dateScan, $total_point, $str_trusts, $str_staleObject, $str_privilegeAccount, $str_anomalies) {
+Function Update-ConnectorBodies($connectorBodies, $domainName, $dateScan, $total_point, $str_trusts, $str_staleObject, $str_privilegeAccount, $str_anomalies, $anssiMaturityText) {
     $updatedBodies = @{}
     foreach ($connector in $connectorModules) {
         $updatedBodies[$connector] = $connectorBodies[$connector]
@@ -279,6 +325,7 @@ Function Update-ConnectorBodies($connectorBodies, $domainName, $dateScan, $total
                 body = $connectorBodies[$connector]
                 domainName = $domainName
                 dateScan = $dateScan
+                anssiMaturityText = $anssiMaturityText
             }
             
             # Add connector-specific parameters
@@ -389,6 +436,93 @@ Function IsEqual($a,$b) {
     return 0
 }
 
+# ANSSI Rule Level and URL Mapping
+$script:ANSSIMapping = @{
+    "S-PwdLastSet-Cluster" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_cluster_no_change_3years" }
+    "S-PwdLastSet-45" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_server_no_change_45" }
+    "S-PwdLastSet-90" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_server_no_change_90" }
+    "S-DC-Inactive" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_inactive_dc" }
+    "S-PwdLastSet-DC" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_dc_no_change" }
+    "S-Inactive" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_user_accounts_dormant" }
+    "S-C-Inactive" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_inactive_servers" }
+    "S-C-PrimaryGroup" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_primary_group_id_nochange" }
+    "S-PrimaryGroup" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_primary_group_id_nochange" }
+    "S-Reversible" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_reversible_password" }
+    "S-C-Reversible" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_reversible_password" }
+    "S-NoPreAuth" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_kerberos_properties_preauth" }
+    "S-NoPreAuthAdmin" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_kerberos_properties_preauth_priv" }
+    "S-PwdNeverExpires" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dont_expire" }
+    "S-FunctionalLevel1" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_functional_level" }
+    "S-FunctionalLevel3" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_functional_level" }
+    "S-FunctionalLevel4" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_functional_level" }
+    "S-DC-2000" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_warning_dc_obsolete" }
+    "S-DC-2003" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_warning_dc_obsolete" }
+    "S-DC-2008" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_warning_dc_obsolete" }
+    "S-DC-2012" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_warning_dc_obsolete" }
+    "S-AesNotEnabled" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_kerberos_properties_encryption" }
+    "S-DesEnabled" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_kerberos_properties_deskey" }
+    "S-DCRegistration" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dc_inconsistent_uac" }
+    "S-ADRegistration" = @{ Level = 4; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_user_accounts_machineaccountquota" }
+    "S-ADRegistrationSchema" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_warning_schema_posssuperiors" }
+    "P-Kerberoasting" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_spn_priv" }
+    "P-AdminPwdTooOld" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_password_change_priv" }
+    "P-ProtectedUsers" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_protected_users" }
+    "P-DisplaySpecifier" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_display_specifier" }
+    "P-DelegationDCt2a4d" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_delegation_t2a4d" }
+    "P-DelegationDCa2d2" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_delegation_a2d2" }
+    "P-DelegationDCsourcedeleg" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_delegation_sourcedeleg" }
+    "P-UnconstrainedDelegation" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_delegation_t4d" }
+    "P-ServiceDomainAdmin" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dont_expire_priv" }
+    "P-RODCRevealOnDemand" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_reveal" }
+    "P-RODCAdminRevealed" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_priv_revealed" }
+    "P-RODCNeverReveal" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_never_reveal" }
+    "P-RODCAllowedGroup" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_allowed_group" }
+    "P-RODCDeniedGroup" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_denied_group" }
+    "P-RODCKrbtgtOrphan" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_rodc_orphan_krbtgt" }
+    "T-SIDFiltering" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_trusts_forest_sidhistory" }
+    "T-SIDHistorySameDomain" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_sidhistory_present" }
+    "T-SIDHistoryDangerous" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_sidhistory_dangerous" }
+    "T-SIDHistoryUnknownDomain" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_sidhistory_present" }
+    "T-TGTDelegation" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_trusts_tgt_deleg" }
+    "T-Inactive" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_trusts_accounts" }
+    "T-AzureADSSO" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_trusts_accounts" }
+    "A-WeakRSARootCert2" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-CertWeakRsaComponent" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-WeakRSARootCert" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-CertWeakDSA" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD2IntermediateCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD4IntermediateCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD5IntermediateCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-SHA0IntermediateCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-SHA1IntermediateCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD2RootCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD4RootCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-MD5RootCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-SHA0RootCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-SHA1RootCert" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-CertROCA" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_certificates_vuln" }
+    "A-CertTempCustomSubject" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_adcs_template_auth_enroll_with_name" }
+    "A-CertTempNoSecurity" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_adcs_template_auth_enroll_with_name" }
+    "A-CertTempAnyone" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_adcs_template_auth_enroll_with_name" }
+    "A-CertTempAgent" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_adcs_template_auth_enroll_with_name" }
+    "A-CertTempAnyPurpose" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_adcs_template_auth_enroll_with_name" }
+    "A-Krbtgt" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_krbtgt" }
+    "A-MinPwdLen" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_privileged_members_password" }
+    "A-DnsZoneUpdate2" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dnszone_bad_prop" }
+    "A-DnsZoneUpdate1" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dnszone_bad_prop" }
+    "A-NTFRSOnSysvol" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_sysvol_ntfrs" }
+    "A-DsHeuristicsAllowAnonNSPI" = @{ Level = 1; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dsheuristics_bad" }
+    "A-DsHeuristicsAnonymous" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dsheuristics_bad" }
+    "A-PreWin2000Anonymous" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_compatible_2000_anonymous" }
+    "A-DsHeuristicsLDAPSecurity" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dsheuristics_bad" }
+    "A-DsHeuristicsDoNotVerifyUniqueness" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_dsheuristics_bad" }
+    "A-PreWin2000Other" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_compatible_2000_not_default" }
+    "A-AdminSDHolder" = @{ Level = 2; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_privileged_members_no_admincount" }
+    "A-ReversiblePwd" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_reversible_password" }
+    "A-UnixPwd" = @{ Level = 3; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_reversible_password" }
+    "A-SmartCardPwdRotation" = @{ Level = 4; URL = "https://www.cert.ssi.gouv.fr/uploads/ad_checklist.html#vuln_smartcard_expire_passwords" }
+}
+
 # function to get diff between two reports
 Function DiffReport($xml1,$xml2,$action) {
 
@@ -403,21 +537,26 @@ Function DiffReport($xml1,$xml2,$action) {
                     break
                 # else if warning and                       
                 } elseIf ($action -eq ":arrow_forward:" -and ($rule2.RiskId -eq $rule.RiskId) -and ($rule2.Rationale -ne $rule.Rationale)) {
-                    Write-Information ($action  + " *+" + $rule.Points + "* - " + $rule.Rationale + " " + $rule2.Rationale)
+                    $formattedRationale = Format-RuleWithANSSILevel $rule
+                    $formattedRationale2 = Format-RuleWithANSSILevel $rule2
+                    Write-Information ($action  + " *+" + $rule.Points + "* - " + $formattedRationale + " " + $formattedRationale2)
                     $found = 2
                     break   
                 }
             }
         }
         if ($found -eq 0 -and $rule.Rationale -and $action -ne ":arrow_forward:") {
-            Write-Information ($action  + " *+" + $rule.Points + "* - " + $rule.Rationale + " " + $rule2.RiskId + " " + $rule.RiskId)
+            $formattedRationale = Format-RuleWithANSSILevel $rule
+            
+            Write-Information ($action  + " *+" + $rule.Points + "* - " + $formattedRationale + " " + $rule2.RiskId + " " + $rule.RiskId)
             If ($action -eq ":heavy_exclamation_mark:") {
-                $result = $result + $action  + " *+" + $rule.Points + "* - " + $rule.Rationale + "`n"
+                $result = $result + $action  + " *+" + $rule.Points + "* - " + $formattedRationale + "`n"
             } else {
-                $result = $result + $action  + " *-" + $rule.Points + "* - " + $rule.Rationale + "`n"
+                $result = $result + $action  + " *-" + $rule.Points + "* - " + $formattedRationale + "`n"
             }
         } elseIf ($found -eq 2 -and $rule.Rationale) {
-            $result = $result + $action  + " *" + $rule.Points + "* - " + $rule.Rationale + "`n"
+            $formattedRationale = Format-RuleWithANSSILevel $rule
+            $result = $result + $action  + " *" + $rule.Points + "* - " + $formattedRationale + "`n"
         }
     } 
     return $result   
@@ -483,14 +622,17 @@ $str_staleObject = Add_Color $StaleObjects
 $str_privilegeAccount = Add_Color $PrivilegedAccounts
 $str_anomalies = Add_Color $Anomalies
 
+# Calculate ANSSI maturity level
+$allRules = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts
+$anssiMaturity = Get-ANSSIMaturityLevel $allRules
+$anssiMaturityText = if ($anssi_lvl_enabled -and $anssiMaturity) { " (ANSSI Maturity Level $anssiMaturity/5)" } else { "" }
+
 # Update Slack color if enabled
 if ($enabledConnectors["Slack"]) {
     $connectorBodies["Slack"] = Update-SlackColor -body $connectorBodies["Slack"] -point $total_point
 }
-
 # Update all connector bodies with scan data
-$connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies
-
+$connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies $anssiMaturityText
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 Write-Information $old_report.FullName
 $current_scan = ""
@@ -509,17 +651,20 @@ if (-not ($old_report.FullName)) {
     Foreach ($rule in $newCategoryContent) {
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
-            $result = $result + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
+            $formattedRationale = Format-RuleWithANSSILevel $rule
+            $result = $result + $action + $rule.Points + "* - " + $formattedRationale + "`n"
         }
     }
     $final_thread = $result
 } else {
+
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     Foreach ($rule in $newCategoryContent) {
 
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
-            $current_scan = $current_scan + $action + $rule.Points + "* - " + $rule.Rationale + "`n"
+            $formattedRationale = Format-RuleWithANSSILevel $rule
+            $current_scan = $current_scan + $action + $rule.Points + "* - " + $formattedRationale + "`n"
         }
     }
 
@@ -574,7 +719,6 @@ if (-not ($old_report.FullName)) {
     
     $final_thread = $addedVuln + $removedVuln + $warningVuln
 }
-
 $logreport = $PingCastle.ReportFolder + "\\scan.log"
 
 Write-Host "[+] Analyzing report done"
