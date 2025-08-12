@@ -10,7 +10,7 @@ function Initialize-Teams_WorkflowConfig {
     $script:teamsWorkflowUri = if ($envVars["TEAMS_WORKFLOW_URI"]) { $envVars["TEAMS_WORKFLOW_URI"] } else { "https://prod-xx.westus.logic.azure.com:443/workflows/xxxxxxxxxxxxxxx/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xxxxxxxxxxxxxxxxx" }
     
     $script:BodyTeamsWorkflow = @"
-{ 'pingcastle': '`nDomain *domain_env* - date_scan - *Global Score abc* : 
+{ 'pingcastle': '`nDomain *domain_env* - date_scan - *Global Score abc* anssi_maturity : 
 - Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
 - add_new_vuln'}
 "@
@@ -25,10 +25,11 @@ function Update-Teams_WorkflowBody {
         [string]$str_trusts,
         [string]$str_staleObject,
         [string]$str_privilegeAccount,
-        [string]$str_anomalies
+        [string]$str_anomalies,
+        [string]$anssiMaturityText = ""
     )
     
-    return $body.Replace("abc", $str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+    return $body.Replace("abc", $str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy")).Replace("anssi_maturity", $anssiMaturityText)
 }
 
 function Send-Teams_WorkflowMessage {
@@ -61,6 +62,7 @@ function Send-Teams_WorkflowMessage {
         $finalMessage = $messageContent.Replace("*","**").Replace("`n","`n`n")
         $finalMessage = $finalMessage.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
         $finalMessage = $finalMessage.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
+        $finalMessage = $finalMessage.Replace(":smile:", "&#128522;`n").Replace(":tada:", "&#127881;`n").Replace(":rage:", "&#128548;`n")
         
         Write-Host "[+] Sending to Teams Workflow"
 

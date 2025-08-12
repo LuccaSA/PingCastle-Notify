@@ -37,7 +37,8 @@ function Update-DiscordBody {
         [string]$str_trusts,
         [string]$str_staleObject,
         [string]$str_privilegeAccount,
-        [string]$str_anomalies
+        [string]$str_anomalies,
+        [string]$anssiMaturityText = ""
     )
     
     $body['content'] = $body['content'].Replace("abc", $str_total_point).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))

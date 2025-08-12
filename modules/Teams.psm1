@@ -10,7 +10,7 @@ function Initialize-TeamsConfig {
     
     $script:BodyTeams = @"
 {
-   text:'Domain *domain_env* - date_scan - *Global Score abc* : 
+   text:'Domain *domain_env* - date_scan - *Global Score abc* anssi_maturity : 
 - Score: *[cbd Trusts | def Stale Object | asx Privileged Group | dse Anomalies]*
 - add_new_vuln
 "@
@@ -25,10 +25,11 @@ function Update-TeamsBody {
         [string]$str_trusts,
         [string]$str_staleObject,
         [string]$str_privilegeAccount,
-        [string]$str_anomalies
+        [string]$str_anomalies,
+        [string]$anssiMaturityText = ""
     )
     
-    return $body.Replace("abc", $str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+    return $body.Replace("abc", $str_total_point).Replace("cbd", $str_trusts).Replace("def", $str_staleObject).Replace("asx", $str_privilegeAccount).Replace("dse", $str_anomalies).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy")).Replace("anssi_maturity", $anssiMaturityText)
 }
 
 function Send-TeamsMessage {
@@ -60,6 +61,7 @@ function Send-TeamsMessage {
         $finalMessage = $finalMessage.Replace("*","**").Replace("`n","`n`n")
         $finalMessage = $finalMessage.Replace(":red_circle:","&#128308;").Replace(":large_orange_circle:","&#128992;").Replace(":large_yellow_circle:","&#128993;").Replace(":large_green_circle:","&#128994;")
         $finalMessage = $finalMessage.Replace(":heavy_exclamation_mark:", "&#10071;").Replace(":white_check_mark:", "&#9989;").Replace(":arrow_forward:", "&#128312;")
+        $finalMessage = $finalMessage.Replace(":smile:", "&#128522;").Replace(":tada:", "&#127881;").Replace(":rage:", "&#128548;")
         
         Write-Host "[+] Sending to teams"
         $response = Invoke-RestMethod -Method Post -ContentType 'application/Json' -Body $finalMessage -Uri $script:teamsUri
