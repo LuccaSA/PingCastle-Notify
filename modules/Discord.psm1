@@ -63,25 +63,39 @@ function Send-DiscordMessage {
     }
     
     try {
-        # Add final_thread to description if available
-        if ($final_thread) {
-            $body['embeds'][0]['description'] = $body['embeds'][0]['description'] + "`n`n" + $final_thread
+        $description = $body['embeds'][0]['description']
+        if ($print_current_result) {
+            $current_scan = "`n`---`n Detected anomalies: `n" + $current_scan
+            $description = $description + $final_thread + $current_scan
+        } else {
+            $description = $description + $final_thread
+        }
+
+        if ($description.Length -gt 4599) {
+            $description = $description.Substring(0, 4600) + "`n`n... (truncated)"
+            Write-Host "[WARNING] Discord description truncated due to 2000 character limit" -ForegroundColor Yellow
         }
         
-        # Add current scan results if enabled
-        if ($print_current_result -and $current_scan) {
-            $body['embeds'][0]['description'] = $body['embeds'][0]['description'] + "`n`n**Detected anomalies:**`n" + $current_scan
-        }
+        # Update the description only once
+        $body['embeds'][0]['description'] = $description
         
         # Convert Slack emojis to Discord-compatible format
         $bodyJson = $body | ConvertTo-Json -Depth 5   
         # Fix markdown formatting - Discord uses ** for bold, not *
         $bodyJson = $bodyJson.Replace("*", "**")
         
-        # Convert emojis
-        $bodyJson = $bodyJson.Replace(":red_circle:", "🔴").Replace(":large_orange_circle:", "🟠").Replace(":large_yellow_circle:", "🟡").Replace(":large_green_circle:", "🟢")
-        $bodyJson = $bodyJson.Replace(":heavy_exclamation_mark:", "❗").Replace(":white_check_mark:", "✅").Replace(":arrow_forward:", "▶️").Replace(":tada:", "🎉").Replace(":rage:", "😡").Replace(":smile:", "😊")
-        
+        # Convert emojis using Unicode escape sequences
+        $bodyJson = $bodyJson.Replace(":red_circle:", [char]::ConvertFromUtf32(0x1F534))
+        $bodyJson = $bodyJson.Replace(":large_orange_circle:", [char]::ConvertFromUtf32(0x1F7E0))
+        $bodyJson = $bodyJson.Replace(":large_yellow_circle:", [char]::ConvertFromUtf32(0x1F7E1))
+        $bodyJson = $bodyJson.Replace(":large_green_circle:", [char]::ConvertFromUtf32(0x1F7E2))
+        $bodyJson = $bodyJson.Replace(":heavy_exclamation_mark:", [char]::ConvertFromUtf32(0x2757))
+        $bodyJson = $bodyJson.Replace(":white_check_mark:", [char]::ConvertFromUtf32(0x2705))
+        $bodyJson = $bodyJson.Replace(":arrow_forward:", [char]::ConvertFromUtf32(0x25B6))
+        $bodyJson = $bodyJson.Replace(":tada:", [char]::ConvertFromUtf32(0x1F389))
+        $bodyJson = $bodyJson.Replace(":rage:", [char]::ConvertFromUtf32(0x1F621))
+        $bodyJson = $bodyJson.Replace(":smile:", [char]::ConvertFromUtf32(0x1F60A))
+
         Write-Host "[+] Sending to Discord"
         $response = Invoke-RestMethod -Method Post -ContentType 'application/json' -Body $bodyJson -Uri $script:discordWebhook
         
@@ -102,7 +116,7 @@ function Update-DiscordFirstScanMessage {
         [hashtable]$body
     )
     
-    $body['embeds'][0]['description'] = "First PingCastle scan ! 🎉"
+    $body['embeds'][0]['description'] = "First PingCastle scan ! " + [char]::ConvertFromUtf32(0x1F389)
     return $body
 }
 
