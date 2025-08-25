@@ -99,16 +99,22 @@ For more information, visit: https://github.com/mpgn/PingCastle-Notify
 # ASCII Art Banner
 Write-Host @"
 
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░                                                ░
-░                PINGCASTLE NOTIFY               ░
-░          Automated Notification System         ░
-░                                                ░
-░            v$scriptVersion by $scriptAuthor - Lucca           ░
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-
+##################################################
+#                                                #
+#                PINGCASTLE NOTIFY               #
+#          Automated Notification System         #
+#                                                #
 "@ -ForegroundColor Cyan
 
+Write-Host "#" -ForegroundColor Cyan -NoNewline
+Write-Host "            v$scriptVersion by $scriptAuthor - Lucca           " -ForegroundColor Magenta -NoNewline  
+Write-Host "#" -ForegroundColor Cyan
+
+Write-Host @"
+##################################################
+
+"@ -ForegroundColor Cyan
+exit
 # Function to read .env file
 Function Read-EnvFile {
     param(
