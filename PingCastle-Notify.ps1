@@ -114,7 +114,7 @@ Write-Host @"
 ##################################################
 
 "@ -ForegroundColor Cyan
-exit
+
 # Function to read .env file
 Function Read-EnvFile {
     param(
