@@ -71,7 +71,25 @@ Slack             | Teams
 
 ## How to install ?
 
-### Structure of the project
+### Quick Setup with Initial Deployment Script
+
+The easiest way to get started is using the automated initial deployment script:
+
+```powershell
+# Download or clone the repository
+git clone https://github.com/mpgn/PingCastle-Notify.git
+cd PingCastle-Notify
+
+# Run the initial deployment script
+.\initial-deploy.ps1
+```
+
+**After running the script, you'll need to:**
+1. Edit the `.env` file to add your specific tokens/webhooks
+2. Configure your chosen notification platform (see sections below)
+3. Run `.\PingCastle-Notify.ps1` to start monitoring
+
+###  Structure of the project
 
 ```
 SECU-TOOL-SCAN/
@@ -97,42 +115,46 @@ SECU-TOOL-SCAN/
 4. Download the PingCastle-Notify repository
 5. Copy `.env.example` to `.env` and configure your settings
 
-#### Configuration
+### Configuration
 
-Create a `.env` file in the root directory with your configuration:
-
-```bash
-# Copy the example file
-cp .env.example .env
-```
-
-Then edit the `.env` file with your settings:
+The `.env` file contains all configuration options. If you used the initial deployment script, this file is already created with your selected connectors enabled.
 
 ```properties
+# Domain Configuration
+DOMAIN=your-domain.local
+
 # Slack Configuration
+SLACK_ENABLED=1
 SLACK_CHANNEL=#pingcastle-scan
 SLACK_TOKEN=xoxb-your-slack-bot-token-here
-SLACK_ENABLED=1
 
 # Teams Configuration  
 TEAMS_ENABLED=0
-TEAMS_URI=https://your-org.webhook.office.com/webhookb2/your-webhook-url-here
+TEAMS_WEBHOOK_URL=https://your-org.webhook.office.com/webhookb2/your-webhook-url
+
+# Teams Workflow Configuration
+TEAMS_WORKFLOW_ENABLED=0
+TEAMS_WORKFLOW_URL=https://prod-xx.westus.logic.azure.com:443/workflows/xxx
+
+# Discord Configuration
+DISCORD_ENABLED=0
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-url
 
 # Report Configuration
 PRINT_CURRENT_RESULT=1
-
-# Domain Configuration
-DOMAIN=your-domain.local
+ANSSI_LVL=1
 ```
 
 **Configuration Options:**
+- `DOMAIN`: Your Active Directory domain (auto-configured by initial deploy script)
 - `SLACK_ENABLED`: Set to `1` to enable Slack notifications, `0` to disable
 - `SLACK_CHANNEL`: The Slack channel to send notifications to (include the #)
 - `SLACK_TOKEN`: Your Slack bot token (starts with `xoxb-`)
-- `TEAMS_ENABLED`: Set to `1` to enable Teams notifications, `0` to disable
-- `TEAMS_URI`: Your Teams webhook URL
+- `TEAMS_ENABLED`: Set to `1` to enable Teams webhook notifications
+- `TEAMS_WORKFLOW_ENABLED`: Set to `1` to enable Teams Power Automate workflow
+- `DISCORD_ENABLED`: Set to `1` to enable Discord notifications
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
-- `DOMAIN`: Your domain name (optional, will use `$env:USERDNSDOMAIN` if not set)
+- `ANSSI_LVL`: Set to `1` to enable ANSSI compliance level reporting
 
 #### Create a BOT
 
