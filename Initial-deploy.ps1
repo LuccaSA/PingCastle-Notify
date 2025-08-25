@@ -404,6 +404,7 @@ Function Show-FinalInstructions {
     Write-Host "Additional configuration options in .env:" -ForegroundColor Cyan
     Write-Host "  • PRINT_CURRENT_RESULT: Set to 1 to include all flagged rules in notifications" -ForegroundColor White
     Write-Host "  • ANSSI_LVL: Set to 1 to enable ANSSI compliance level reporting" -ForegroundColor White
+    Write-Host "  • NOTIFY_WHEN_NO_CHANGES: Set to 1 to enable a report even if nothing change between two scan" -ForegroundColor White
     Write-Host ""
     
     Write-Host "Next steps:" -ForegroundColor Green

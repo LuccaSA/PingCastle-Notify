@@ -23,6 +23,7 @@
         - add -noscan option to skip PingCastle scan
         - add -full_report option to force full report
         - add anssi rules link
+        - add notify when no changes option
     date: 08/08/2025
     version: 2.0
 #>
@@ -189,6 +190,7 @@ $domainSuffix = if ($envVars["DOMAIN"] ) { $envVars["DOMAIN"] } else {
     ($env:USERDNSDOMAIN).ToLower() 
 }
 $anssi_lvl_enabled = if ($envVars["ANSSI_LVL"]) { [int]$envVars["ANSSI_LVL"] } else { 0 }
+$notify_when_no_changes = if ($envVars["NOTIFY_WHEN_NO_CHANGES"]) { [int]$envVars["NOTIFY_WHEN_NO_CHANGES"] } else { 0 }
 
 #region Variable
 $ApplicationName = 'PingCastle'
@@ -701,10 +703,10 @@ if (-not ($old_report.FullName)) {
     # write message regarding previous score
     if ([int]$previous_score -eq [int]$total_point -and (IsEqual $StaleObjects_old $StaleObjects) -and (IsEqual $PrivilegedAccounts_old $PrivilegedAccounts) -and (IsEqual $Anomalies_old $Anomalies) -and (IsEqual $Trusts_old $Trusts)) {
         if ($addedVuln -or $removedVuln -or $warningVuln) {
-            $sentNotification = $True
+            $sentNotification = $true
             $connectorBodies = Update-ConnectorsStatus $connectorBodies "There is no new vulnerability yet some rules have changed !"
         } else {
-            $sentNotification = $False
+            $sentNotification = if ($notify_when_no_changes -eq 1) { $true } else { $false }
             $connectorBodies = Update-ConnectorsStatus $connectorBodies "There is no new vulnerability ! :tada:"
         }
     } elseIf  ([int]$previous_score -lt [int]$total_point) {
