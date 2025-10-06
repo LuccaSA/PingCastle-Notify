@@ -42,7 +42,7 @@ function Initialize-SlackConfig {
                         "short" = $False
                     }
                 )
-                "footer" = "<https://github.com/LuccaSA/PingCastle-Notify|Pingcastle-Notify> v1.2"
+                "footer" = "<https://github.com/LuccaSA/PingCastle-Notify|Pingcastle-Notify> v2.0"
                 "footer_icon" = "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"
             }
         );
