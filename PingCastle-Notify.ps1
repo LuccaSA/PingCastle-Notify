@@ -642,7 +642,7 @@ if ($enabledConnectors["Slack"]) {
 # Update all connector bodies with scan data
 $connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies $anssiMaturityText
 $old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
-Write-Information $old_report.FullName
+# Write-Information $old_report.FullName
 $current_scan = ""
 $final_thread = ""
 # Check if PingCastle previous score file exist
