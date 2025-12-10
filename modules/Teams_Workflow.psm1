@@ -66,7 +66,7 @@ function Send-Teams_WorkflowMessage {
         
         Write-Host "[+] Sending to Teams Workflow"
 
-        $response = Invoke-WebRequest -Method Post -ContentType 'application/json' -Body $finalMessage -Uri $script:teamsWorkflowUri
+        $response = Invoke-WebRequest -Method Post -ContentType 'application/json' -Body $finalMessage -Uri $script:teamsWorkflowUri -UseBasicParsing
         if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
             Write-Host "[+] Teams Workflow message sent successfully" -ForegroundColor Green
         } else {
