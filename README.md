@@ -213,6 +213,8 @@ ANSSI_LVL=1
 > [!WARNING]
 > With "Anyone", the `sig` in the URL is the only credential: anyone holding the URL can post to the channel. Keep `.env` out of source control and logs.
 
+The trigger answers as soon as the flow is queued, so the script cannot see failures in the **Post message** step (for example a message exceeding Teams' size limit). If nothing shows up in the channel, check the flow's run history in Power Automate.
+
 If a send fails, the script prints the error returned by Power Automate and saves the payload to `modules/teams_workflow_failed_payload.json` for debugging. This file contains scan findings; delete it once done.
 </details>
 
