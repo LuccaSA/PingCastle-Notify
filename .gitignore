@@ -11,6 +11,7 @@ Reports/
 *.xml
 *.html
 scan.log
+teams_workflow_failed_payload.json
 
 # PowerShell module cache
 *.psm1.cache
