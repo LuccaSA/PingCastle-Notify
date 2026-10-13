@@ -103,7 +103,7 @@ function Update-Teams_WorkflowFirstScanMessage {
         [string]$body
     )
     
-    return $body.Replace("add_new_vuln", "First PingCastle scan ! 🎉`n`n")
+    return $body.Replace("add_new_vuln", "First PingCastle scan ! &#127881;`n`n")
 }
 
 function Update-Teams_WorkflowStatusMessage {
