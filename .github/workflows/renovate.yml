@@ -1,0 +1,25 @@
+name: Renovate
+
+# Les crons sont en UTC (GitHub Actions ne gère pas les fuseaux) : 3 h et 6 h
+# UTC = 4 h/7 h l'hiver et 5 h/8 h l'été à Paris. Deux passages sont nécessaires
+# pour qu'un automerge aille au bout : le premier ouvre la PR, le second la merge
+# une fois la CI verte (platformAutomerge est à false côté renovate-config).
+# Les presets filtrent en plus via `schedule` sur `timezone: Europe/Paris` : si un
+# cron tombe hors de la fenêtre d'un repo, le run a lieu mais n'ouvre aucune PR.
+# Ne pas décaler ces crons sans vérifier cette intersection.
+on:
+  schedule:
+    - cron: "0 3 * * 1-5"
+    - cron: "0 6 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  renovate:
+    # Épinglé sur un SHA plutôt que @main : une modification du workflow
+    # réutilisable ne part pas d'un coup sur tous les repos sans relecture.
+    # Renovate met ce pin à jour tout seul (manager github-actions).
+    uses: LuccaSA/renovate-config/.github/workflows/renovate-run.yml@12951ec050cec7fb57f3495eeb76300f5475c0a0 # main
+    with:
+      caller_repository: ${{ github.repository }}
+      dry_run: false
+    secrets: inherit
