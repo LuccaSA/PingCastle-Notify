@@ -360,6 +360,11 @@ Function Get-ANSSIMaturityLevel($rules) {
     return $lowestLevel
 }
 
+# Function to sort rules by ANSSI maturity level (most critical first), then by points
+Function Sort-RulesByMaturity($rules) {
+    return $rules | Sort-Object @{ Expression = { $level = $null; if ($_.RiskId) { $level = Get-ANSSILevel $_.RiskId }; if ($level) { $level } else { 6 } } }, @{ Expression = { [int]$_.Points }; Descending = $true }
+}
+
 # Function to list the rules preventing the next maturity level
 Function Get-MaturityBlockers($rules, $level) {
     $result = ""
@@ -725,7 +730,7 @@ if (-not ($old_report.FullName)) {
     
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
-    Foreach ($rule in $newCategoryContent) {
+    Foreach ($rule in (Sort-RulesByMaturity $newCategoryContent)) {
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
             $formattedRationale = Format-RuleWithANSSILevel $rule
@@ -736,7 +741,7 @@ if (-not ($old_report.FullName)) {
 } else {
 
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
-    Foreach ($rule in $newCategoryContent) {
+    Foreach ($rule in (Sort-RulesByMaturity $newCategoryContent)) {
 
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
