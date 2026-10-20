@@ -11,7 +11,7 @@ function Initialize-DiscordConfig {
     $script:BodyDiscord = @{
         username = "PingCastle Bot"
         avatar_url = "https://example.com/pingcastle-icon.png"
-        content = "Domain **domain_env** - date_scan - **Global Score abc** :"
+        content = "Domain *domain_env* - date_scan - *Global Score abc*anssi_maturity :"
         embeds = @(
             @{
                 title = "PingCastle Scan Results"
@@ -41,7 +41,7 @@ function Update-DiscordBody {
         [string]$anssiMaturityText = ""
     )
     
-    $body['content'] = $body['content'].Replace("abc", $str_total_point).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy"))
+    $body['content'] = $body['content'].Replace("abc", $str_total_point).Replace("domain_env", $domainName).Replace("date_scan", $dateScan.ToString("dd/MM/yyyy")).Replace("anssi_maturity", $anssiMaturityText)
     $body['embeds'][0]['fields'][0]['value'] = $str_trusts
     $body['embeds'][0]['fields'][1]['value'] = $str_staleObject
     $body['embeds'][0]['fields'][2]['value'] = $str_privilegeAccount

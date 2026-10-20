@@ -134,7 +134,7 @@ TEAMS_WEBHOOK_URL=https://your-org.webhook.office.com/webhookb2/your-webhook-url
 
 # Teams Workflow Configuration
 TEAMS_WORKFLOW_ENABLED=0
-TEAMS_WORKFLOW_URL=https://prod-xx.westus.logic.azure.com:443/workflows/xxx
+TEAMS_WORKFLOW_URI=https://xxxxxxxx.xx.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/xxx/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xxx
 
 # Discord Configuration
 DISCORD_ENABLED=0
@@ -154,7 +154,7 @@ ANSSI_LVL=1
 - `TEAMS_WORKFLOW_ENABLED`: Set to `1` to enable Teams Power Automate workflow
 - `DISCORD_ENABLED`: Set to `1` to enable Discord notifications
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
-- `ANSSI_LVL`: Set to `1` to enable ANSSI compliance level reporting
+- `ANSSI_LVL`: Set to `1` to show the ANSSI maturity level (as computed by PingCastle, with the previous value when it changed) and the rules to fix to reach the next level. Per-rule levels come from `PingCastle.exe --export-rules` (`PingCastleRules.xml`, regenerated when PingCastle is updated); if the export is unavailable, a built-in mapping is used.
 
 #### Create a BOT
 
@@ -193,18 +193,29 @@ ANSSI_LVL=1
 <details>
 <summary>:arrow_forward: <b>Teams WorkFlow (prefered for Teams)</b></summary>
 
-1.  **Start a new workflow:** In Microsoft Teams, navigate to your desired channel, click the three dots (`...`), and select **Workflows**. Then, click **Create a workflow**.
-2.  **Set the trigger:** Search for and select the trigger **"When a Teams webhook request is received."** This action provides a unique URL that will listen for incoming POST requests.
-3.  **Add a new action:** Click on **New step**.
-4.  **Configure the action:** Search for and select the action **"Post message in a chat or channel."**
-    * For **Post as**, choose `Flow bot` to ensure the message comes from the workflow itself.
-    * Select the **Team** and **Channel** where the message should be posted.
-5.  **Define the message content:** In the `Message` field, click on the **Expression** tab. Enter the following expression:
+1. **Create the flow:** In Power Automate (or in Teams: channel `...` → **Workflows** → **Create a workflow**), create a flow with the trigger **"When a Teams webhook request is received"**.
+2. **Allow anonymous calls:** In the trigger, set **Who can trigger the flow?** to **Anyone**.
+   * If "Anyone" is not in the dropdown, choose **Enter custom value** and enter `All`. Check in **Code view** that the trigger shows `"triggerAuthenticationType": "All"`.
+   * New flows default to "Any user in my tenant", which requires an Entra ID bearer token. The script does not support authenticated triggers and will get `(401) Unauthorized`. If your tenant blocks anonymous triggers, the "Anyone" setting will not stick.
+3. **Add the action** **"Post message in a chat or channel"**:
+    * For **Post as**, choose `Flow bot`.
+    * For **Post in**, choose `Channel`, then select the **Team** and **Channel**.
+4. **Set the message:** In the **Message** field, insert an **expression** (type `/` → *Insert expression*, or use the **fx** button):
     `triggerBody()?['pingcastle']`
-    This expression tells the workflow to look for a key named `pingcastle` within the JSON payload of the incoming webhook request and use its value as the message content.
-6.  **Save and get the URL:** Save the workflow. Once saved, expand the trigger step **"When a Teams webhook request is received."** The unique **HTTP POST URL** will be displayed there.
-You can now use this URL to send a message to the Teams channel. Any POST request to this URL with a JSON body containing a key named `pingcastle` will have the corresponding value posted as a message.
-7. Update the `.env` file
+    It must appear as a token in the field. Typed as plain text, the flow posts the literal string; if the field is left empty, the flow posts an empty message (the run still succeeds with 201).
+5. **Save and get the URL:** **Save** the flow, reload the page, then copy the **HTTP URL** from the trigger. It looks like:
+    `https://<env>.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/<id>/triggers/manual/paths/invoke?api-version=1&sp=...&sv=1.0&sig=...`
+    Confirm it contains `sig=`. If not, the trigger is still authenticated and the script will get 401.
+6. **Update the `.env` file:**
+   * Set `TEAMS_WORKFLOW_ENABLED=1`
+   * Set `TEAMS_WORKFLOW_URI` to the trigger URL
+
+> [!WARNING]
+> With "Anyone", the `sig` in the URL is the only credential: anyone holding the URL can post to the channel. Keep `.env` out of source control and logs.
+
+The trigger answers as soon as the flow is queued, so the script cannot see failures in the **Post message** step (for example a message exceeding Teams' size limit). If nothing shows up in the channel, check the flow's run history in Power Automate.
+
+If a send fails, the script prints the error returned by Power Automate and saves the payload to `modules/teams_workflow_failed_payload.json` for debugging. This file contains scan findings; delete it once done.
 </details>
 
 

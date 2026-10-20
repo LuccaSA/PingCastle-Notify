@@ -381,7 +381,7 @@ Function Show-FinalInstructions {
     
     if ($EnabledConnectors["TEAMS_WORKFLOW_ENABLED"] -eq "1") {
         $hasEnabledConnectors = $true
-        Write-Host "  • TEAMS WORKFLOW: Set TEAMS_WORKFLOW_URL with your Power Automate workflow URL" -ForegroundColor White
+        Write-Host "  • TEAMS WORKFLOW: Set TEAMS_WORKFLOW_URI with your Power Automate workflow URL" -ForegroundColor White
         Write-Host "    - Create a Power Automate workflow with HTTP trigger" -ForegroundColor Gray
         Write-Host "    - Copy the HTTP POST URL" -ForegroundColor Gray
         Write-Host ""

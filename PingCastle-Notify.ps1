@@ -271,8 +271,48 @@ Function Update-ConnectorsStatus($connectorBodies, $message) {
     return $updatedBodies
 }
 
-# Function to get ANSSI level for a rule
+# Function to load rule maturity levels from PingCastle itself (PingCastle.exe --export-rules)
+# Falls back to the built-in $script:ANSSIMapping if the export is not available
+Function Import-PingCastleRules {
+    $script:RuleMaturity = $null
+    $rulesFile = Join-Path $PingCastle.ProgramPath "PingCastleRules.xml"
+    try {
+        $exe = Get-Item $pingCastleFullpath -ErrorAction SilentlyContinue
+        # Re-export when missing or when PingCastle has been updated since the last export
+        if ($exe -and (-not (Test-Path $rulesFile) -or (Get-Item $rulesFile).LastWriteTime -lt $exe.LastWriteTime)) {
+            Write-Host "[+] Exporting PingCastle rule list"
+            Start-Process -FilePath $exe.FullName -ArgumentList '--export-rules' -WorkingDirectory $PingCastle.ProgramPath -WindowStyle Hidden -Wait
+        }
+        if (-not (Test-Path $rulesFile)) {
+            Write-Warning "PingCastleRules.xml not found, using built-in ANSSI mapping"
+            return
+        }
+        $rules = @{}
+        foreach ($node in (Select-Xml -Path $rulesFile -XPath "/ArrayOfExportedRule/ExportedRule[Type='Active Directory']").Node) {
+            $url = $null
+            if ($node.Documentation -match 'https://www\.cert\.ssi\.gouv\.fr/uploads/ad_checklist\.html#[^"]+') {
+                $url = $Matches[0]
+            }
+            $rules[$node.RiskId] = @{ Level = [int]$node.MaturityLevel; URL = $url }
+        }
+        $script:RuleMaturity = $rules
+        Write-Information "Loaded maturity levels for $($rules.Count) rules from $rulesFile"
+    }
+    catch {
+        Write-Warning "Unable to load PingCastle rule list, using built-in ANSSI mapping: $_"
+        $script:RuleMaturity = $null
+    }
+}
+
+# Function to get ANSSI maturity level for a rule (1-5, $null if the rule has none)
 Function Get-ANSSILevel($riskId) {
+    if ($script:RuleMaturity -and $script:RuleMaturity.ContainsKey($riskId)) {
+        $level = $script:RuleMaturity[$riskId].Level
+        if ($level -ge 1 -and $level -le 5) {
+            return $level
+        }
+        return $null
+    }
     if ($script:ANSSIMapping.ContainsKey($riskId)) {
         return $script:ANSSIMapping[$riskId].Level
     }
@@ -281,6 +321,9 @@ Function Get-ANSSILevel($riskId) {
 
 # Function to get ANSSI URL for a rule
 Function Get-ANSSIURL($riskId) {
+    if ($script:RuleMaturity -and $script:RuleMaturity.ContainsKey($riskId) -and $script:RuleMaturity[$riskId].URL) {
+        return $script:RuleMaturity[$riskId].URL
+    }
     if ($script:ANSSIMapping.ContainsKey($riskId)) {
         return $script:ANSSIMapping[$riskId].URL
     }
@@ -295,14 +338,15 @@ Function Format-RuleWithANSSILevel($rule) {
     if ($anssiLevel -and $anssiURL) {
         return "$($rule.Rationale) ([ANSSI L$anssiLevel]($anssiURL))"
     } elseif ($anssiLevel) {
-        return "$($rule.Rationale) ([ANSSI L$anssiLevel)($anssiURL))"
+        return "$($rule.Rationale) (ANSSI L$anssiLevel)"
     }
     return $rule.Rationale
 }
 
-# Function to calculate ANSSI maturity level (lowest level found)
+# Function to calculate ANSSI maturity level (lowest level found, 5 if none)
+# Only used when the report does not contain the MaturityLevel computed by PingCastle
 Function Get-ANSSIMaturityLevel($rules) {
-    $lowestLevel = 5  # Start with highest possible level
+    $lowestLevel = 5
     
     foreach ($rule in $rules) {
         if ($rule.RiskId) {
@@ -313,12 +357,24 @@ Function Get-ANSSIMaturityLevel($rules) {
         }
     }
     
-    # If no ANSSI rules found or lowest level is 4 or higher, return level 5
-    if ($lowestLevel -ge 4) {
-        return 5
-    } else {
-        return $lowestLevel
+    return $lowestLevel
+}
+
+# Function to sort rules by ANSSI maturity level (most critical first), then by points
+Function Sort-RulesByMaturity($rules) {
+    return $rules | Sort-Object @{ Expression = { $level = $null; if ($_.RiskId) { $level = Get-ANSSILevel $_.RiskId }; if ($level) { $level } else { 6 } } }, @{ Expression = { [int]$_.Points }; Descending = $true }
+}
+
+# Function to list the rules preventing the next maturity level
+Function Get-MaturityBlockers($rules, $level) {
+    $result = ""
+    foreach ($rule in $rules) {
+        if ($rule.RiskId -and (Get-ANSSILevel $rule.RiskId) -eq $level) {
+            $formattedRationale = Format-RuleWithANSSILevel $rule
+            $result = $result + "- *+" + $rule.Points + "* - " + $formattedRationale + "`n"
+        }
     }
+    return $result
 }
 
 # Generic function to update connector body with scan data
@@ -605,6 +661,8 @@ foreach ($pingCastleTestFile in ($pingCastleReportFullpath, $pingCastleReportXML
     }
 }
 
+Import-PingCastleRules
+
 Write-Host "[+] Analyzing report content"
 
 # Get content on XML file
@@ -630,10 +688,27 @@ $str_staleObject = Add_Color $StaleObjects
 $str_privilegeAccount = Add_Color $PrivilegedAccounts
 $str_anomalies = Add_Color $Anomalies
 
-# Calculate ANSSI maturity level
+$old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
+
+# ANSSI maturity level as computed by PingCastle (older reports: compute it from the rules)
 $allRules = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts
-$anssiMaturity = Get-ANSSIMaturityLevel $allRules
-$anssiMaturityText = if ($anssi_lvl_enabled -and $anssiMaturity) { " (ANSSI Maturity Level $anssiMaturity/5)" } else { "" }
+$anssiMaturity = (Select-Xml -Path $pingCastleReportXMLFullpath -XPath "/HealthcheckData/MaturityLevel").Node.InnerText
+if (-not $anssiMaturity) {
+    $anssiMaturity = Get-ANSSIMaturityLevel $allRules
+}
+$anssiMaturity = [int]$anssiMaturity
+$previousMaturity = $null
+if ($old_report.FullName) {
+    $previousMaturity = (Select-Xml -Path $old_report.FullName -XPath "/HealthcheckData/MaturityLevel").Node.InnerText
+}
+$anssiMaturityText = ""
+if ($anssi_lvl_enabled -and $anssiMaturity) {
+    $anssiMaturityText = " (ANSSI Maturity Level $anssiMaturity/5"
+    if ($previousMaturity -and [int]$previousMaturity -ne $anssiMaturity) {
+        $anssiMaturityText += ", was $previousMaturity"
+    }
+    $anssiMaturityText += ")"
+}
 
 # Update Slack color if enabled
 if ($enabledConnectors["Slack"]) {
@@ -641,7 +716,6 @@ if ($enabledConnectors["Slack"]) {
 }
 # Update all connector bodies with scan data
 $connectorBodies = Update-ConnectorBodies $connectorBodies $domainName $dateScan $total_point $str_trusts $str_staleObject $str_privilegeAccount $str_anomalies $anssiMaturityText
-$old_report = (Get-ChildItem -Path "Reports" -Filter "*.xml" -Attributes !Directory | Sort-Object -Descending -Property LastWriteTime | select -First 1)
 # Write-Information $old_report.FullName
 $current_scan = ""
 $final_thread = ""
@@ -656,7 +730,7 @@ if (-not ($old_report.FullName)) {
     
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
     $result = ""
-    Foreach ($rule in $newCategoryContent) {
+    Foreach ($rule in (Sort-RulesByMaturity $newCategoryContent)) {
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
             $formattedRationale = Format-RuleWithANSSILevel $rule
@@ -667,7 +741,7 @@ if (-not ($old_report.FullName)) {
 } else {
 
     $newCategoryContent = $Anomalies + $PrivilegedAccounts + $StaleObjects + $Trusts 
-    Foreach ($rule in $newCategoryContent) {
+    Foreach ($rule in (Sort-RulesByMaturity $newCategoryContent)) {
 
         $action = ":heavy_exclamation_mark: *+"
         if ($rule.RiskId) {
@@ -727,6 +801,15 @@ if (-not ($old_report.FullName)) {
     
     $final_thread = $addedVuln + $removedVuln + $warningVuln
 }
+
+# Rules to fix to reach the next ANSSI maturity level
+if ($anssi_lvl_enabled -and $anssiMaturity -lt 5) {
+    $blockers = Get-MaturityBlockers $allRules $anssiMaturity
+    if ($blockers) {
+        $final_thread = $final_thread + "`n*To reach ANSSI maturity level " + ($anssiMaturity + 1) + ", fix:*`n" + $blockers
+    }
+}
+
 $logreport = $PingCastle.ReportFolder + "\\scan.log"
 
 Write-Host "[+] Analyzing report done"
