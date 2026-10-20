@@ -366,7 +366,7 @@ Function Get-MaturityBlockers($rules, $level) {
     foreach ($rule in $rules) {
         if ($rule.RiskId -and (Get-ANSSILevel $rule.RiskId) -eq $level) {
             $formattedRationale = Format-RuleWithANSSILevel $rule
-            $result = $result + "- *" + $rule.Points + "* - " + $formattedRationale + "`n"
+            $result = $result + "- *+" + $rule.Points + "* - " + $formattedRationale + "`n"
         }
     }
     return $result
