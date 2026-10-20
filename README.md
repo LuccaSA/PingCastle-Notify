@@ -154,7 +154,7 @@ ANSSI_LVL=1
 - `TEAMS_WORKFLOW_ENABLED`: Set to `1` to enable Teams Power Automate workflow
 - `DISCORD_ENABLED`: Set to `1` to enable Discord notifications
 - `PRINT_CURRENT_RESULT`: Set to `1` to include current scan results in notifications
-- `ANSSI_LVL`: Set to `1` to enable ANSSI compliance level reporting
+- `ANSSI_LVL`: Set to `1` to show the ANSSI maturity level (as computed by PingCastle, with the previous value when it changed) and the rules to fix to reach the next level. Per-rule levels come from `PingCastle.exe --export-rules` (`PingCastleRules.xml`, regenerated when PingCastle is updated); if the export is unavailable, a built-in mapping is used.
 
 #### Create a BOT
 
